@@ -1,0 +1,70 @@
+rules_version = '2';
+// Clear Audio Recorder — database security rules.
+// Paste this whole file into Firebase console → Firestore Database → Rules → Publish.
+//
+// What these rules guarantee:
+//  - Nobody can read the user list except an admin.
+//  - A signed-in user can read and write only their own profile.
+//  - A user can never make themselves Pro, un-ban themselves, become admin,
+//    or lower their used free seconds.
+//  - Nobody can make themselves an admin from the app or the web. Admins are added
+//    only by the project owner inside the Firebase console.
+//  - Everything not listed here is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    // Fields the app is allowed to write on a profile.
+    function userFields() {
+      return ['name', 'email', 'photo', 'platform', 'appVersion', 'lastActive', 'createdAt',
+              'freeUsed', 'folders', 'settings', 'plan', 'recordings', 'stats', 'days'];
+    }
+    function validProfile(d) {
+      return d.keys().hasOnly(userFields())
+        && (!('freeUsed' in d) || (d.freeUsed is number && d.freeUsed >= 0 && d.freeUsed <= 100000))
+        && (!('folders' in d) || (d.folders is list && d.folders.size() <= 200))
+        && (!('name' in d) || (d.name is string && d.name.size() <= 200))
+        && (!('email' in d) || (d.email is string && d.email == request.auth.token.email))
+        && (!('plan' in d) || d.plan in ['free', 'pro'])
+        && (!('settings' in d) || d.settings is map)
+        && (!('stats' in d) || d.stats is map)
+        && (!('days' in d) || (d.days is map && d.days.size() <= 60));
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(uid) && validProfile(request.resource.data);
+      allow update: if isAdmin()
+        || (isOwner(uid)
+            // only app-owned fields may change; status / giftPro / role stay untouched
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userFields())
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt'])
+            && request.resource.data.get('freeUsed', 0) >= resource.data.get('freeUsed', 0)
+            && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email)
+            && (!('folders' in request.resource.data) || request.resource.data.folders.size() <= 200)
+            && (!('days' in request.resource.data) || request.resource.data.days.size() <= 60));
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // App-wide settings (free seconds, ads on/off, announcement). Public to read, admin to change.
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admin list. A person can check whether they are an admin; nobody can edit it from outside the console.
+    match /admins/{uid} {
+      allow get: if isOwner(uid);
+      allow list, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

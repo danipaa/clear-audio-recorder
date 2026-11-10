@@ -8,7 +8,11 @@ import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { AdMob, BannerAdSize, BannerAdPosition, BannerAdPluginEvents, AdmobConsentStatus } from '@capacitor-community/admob';
 import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+import { registerPlugin } from '@capacitor/core';
 import { CONFIG } from './config.js';
+import { createCloud } from './cloud.js';
+
+const ClearNative = registerPlugin('ClearNative');
 
 // Directory.Data is the app's private folder. Android deletes it when the app is uninstalled.
 const DIR = Directory.Data;
@@ -50,8 +54,11 @@ if (Capacitor.isNativePlatform()) {
   }
   const isActive = info => !!(info && info.entitlements && info.entitlements.active && info.entitlements.active[CONFIG.entitlementId]);
 
+  let interstitialMinutes = CONFIG.interstitialEveryMinutes;
   window.NativePlatform = {
     name: 'android',
+    version: CONFIG.appVersion,
+    cloud: createCloud(CONFIG, 'android'),
     async init() {
       try { await Filesystem.mkdir({ path: AUDIO, directory: DIR, recursive: true }); } catch (e) { /* exists */ }
       try { await StatusBar.setStyle({ style: Style.Dark }); await StatusBar.setBackgroundColor({ color: '#08090a' }); } catch (e) { }
@@ -85,8 +92,46 @@ if (Capacitor.isNativePlatform()) {
         return { ok: false, message: 'Couldn\'t open the share menu. Try again.' };
       }
     },
+    device: {
+      async setVolumeCapture(enabled) { try { await ClearNative.setVolumeCapture({ enabled: !!enabled }); } catch (e) { } },
+      async keepAwake(on) { try { await ClearNative.keepAwake({ on: !!on }); } catch (e) { } },
+    },
+    // "Send to PC": files are written to the app's cache, then served on the local Wi-Fi only.
+    transfer: {
+      async start(files) {
+        try {
+          try { await Filesystem.rmdir({ path: 'send', directory: Directory.Cache, recursive: true }); } catch (e) { }
+          const list = [];
+          for (let i = 0; i < files.length; i++) {
+            const path = `send/${i}-${files[i].name.replace(/[^\w.() -]+/g, '_')}`;
+            await writeBinary(path, files[i].bytes, Directory.Cache);
+            const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
+            list.push({ path: uri, name: files[i].name });
+          }
+          const r = await ClearNative.startShare({ files: list });
+          return { ok: true, url: r.url, count: r.count };
+        } catch (e) {
+          const msg = String((e && e.message) || e);
+          if (/NO_WIFI/.test(msg)) return { ok: false, message: 'Connect this phone to Wi-Fi (the same one as your computer) and try again.' };
+          return { ok: false, message: 'Couldn\'t start sending. Try again.' };
+        }
+      },
+      async status() { try { return await ClearNative.shareStatus(); } catch (e) { return { running: false, downloads: 0 }; } },
+      async stop() {
+        try { await ClearNative.stopShare(); } catch (e) { }
+        try { await Filesystem.rmdir({ path: 'send', directory: Directory.Cache, recursive: true }); } catch (e) { }
+      },
+    },
     billing: {
       price: '$2.00',
+      // Ties the subscription to the signed-in account so Pro follows the user to a new phone.
+      async identify(uid) {
+        if (!hasBilling) return false;
+        try {
+          const { customerInfo } = uid ? await Purchases.logIn({ appUserID: uid }) : await Purchases.logOut();
+          return isActive(customerInfo);
+        } catch (e) { return false; }
+      },
       async init() {
         if (!hasBilling) return;
         try { await Purchases.setLogLevel({ level: LOG_LEVEL.WARN }); } catch (e) { }
@@ -132,8 +177,9 @@ if (Capacitor.isNativePlatform()) {
         bannerOn = false; setAdHeight(0);
         try { await AdMob.removeBanner(); } catch (e) { }
       },
+      setInterstitialMinutes(m) { if (m >= 1 && m <= 120) interstitialMinutes = m; },
       async interstitial() {
-        if (!adsReady || Date.now() - lastInterstitial < CONFIG.interstitialEveryMinutes * 60000) return;
+        if (!adsReady || Date.now() - lastInterstitial < interstitialMinutes * 60000) return;
         lastInterstitial = Date.now();
         try { await AdMob.prepareInterstitial({ adId: CONFIG.admob.interstitial, isTesting: CONFIG.adsTestMode }); await AdMob.showInterstitial(); } catch (e) { }
       },

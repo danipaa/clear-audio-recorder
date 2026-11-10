@@ -18,6 +18,7 @@ Edit one file: `src/native/config.js`
 
 | Setting | What to put |
 |---|---|
+| `firebase`, `googleWebClientId` | From your Firebase project (see guide 1) |
 | `revenueCatAndroidKey` | Your RevenueCat Android key (starts with `goog_`) |
 | `admob.banner` / `admob.interstitial` | Your AdMob ad unit IDs |
 | `adsTestMode` | `false` |
@@ -28,6 +29,16 @@ Then run the **"Make Play Store upload key (run once)"** workflow in Actions, ad
 
 The full step-by-step launch checklist is in the separate Word doc.
 
+## New in this version
+
+- KYRO look: lime and ink palette, pixel-dither glow, sparkles.
+- Record with a volume button (start, pause, resume).
+- Optional Google sign-in. Pro plan, free seconds, folders and settings restore on a new phone. Audio stays on the phone.
+- Send to PC: download recordings from the phone in any browser on the same Wi-Fi.
+- Admin dashboard (`admin/` folder) with stats, user management and remote app settings.
+- Database security rules in `firebase/firestore.rules`.
+- Three PDF guides in `guides/`. Start with guide 2 (launch), then guide 1 (owner and admin).
+
 ## What's where
 
 | Path | What it is |
@@ -35,6 +46,11 @@ The full step-by-step launch checklist is in the separate Word doc.
 | `src/engine.js` | Audio engine: noise removal, 12 voice effects, pitch, WAV/MP3 encoding. Runs fully on the phone. |
 | `src/app.js`, `src/body.html`, `src/styles.css` | The app's screens, animations and logic |
 | `src/native/native.js` | Android side: private storage, share sheet, AdMob, Google Play billing |
+| `src/native/cloud.js` | Google sign-in and account sync (Firebase) |
+| `android/app/src/main/java/...` | Volume keys, keep-awake, Send to PC web server |
+| `admin/` | Admin dashboard: upload this folder to a free static host |
+| `firebase/firestore.rules` | Database security rules: paste into Firebase console |
+| `guides/` | Owner, launch and money guides (PDF) |
 | `src/native/config.js` | Your keys and ad IDs (the only file you edit) |
 | `android/` | The Android Studio project |
 | `scripts/build.mjs` | Builds `www/` for the app and `dist/preview.html` for the browser preview |

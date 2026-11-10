@@ -36,6 +36,13 @@ ${app}
   console.log('built dist/preview.html', (html.length / 1024).toFixed(0) + ' KB');
 }
 
+if (!only || only === 'admin') {
+  // Admin panel: a static folder you can host for free (Vercel, Netlify, Firebase Hosting).
+  const esbuild = await import('esbuild');
+  await esbuild.build({ entryPoints: [join(root, 'src/admin/fb.js')], bundle: true, format: 'iife', minify: true, target: 'es2020', outfile: join(root, 'admin/firebase.bundle.js'), logLevel: 'warning' });
+  console.log('built admin/firebase.bundle.js');
+}
+
 if (!only || only === 'www') {
   const www = join(root, 'www');
   if (existsSync(www)) rmSync(www, { recursive: true });

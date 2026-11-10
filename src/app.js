@@ -4,7 +4,7 @@
   const E = window.ClearEngine;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const FREE_LIMIT = 30; // seconds of free cleaning, total
+  let FREE_LIMIT = 30; // seconds of free cleaning, total (the admin panel can change this)
   const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- Icons ---------- */
@@ -32,6 +32,7 @@
     move: '<path d="M3.5 7.5a2 2 0 0 1 2-2h3.6l2 2h7.4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M9 13.5h6M12.5 11l2.5 2.5-2.5 2.5"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
     lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor" stroke="none"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+    send: '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.500V20M12 13V8M9.500 10.500 12 8l2.500 2.500"/>',
     share: '<path d="M12 3.5v11M8 7.5l4-4 4 4M5.5 12v6a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-6"/>',
     gem: '<path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9 4l3 16 3-16"/>',
     shield: '<path d="M12 3.5 5 6v5.5c0 4.3 2.9 7.6 7 9 4.1-1.4 7-4.7 7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
@@ -152,8 +153,8 @@ void main(){
   }
 
   /* ---------- State ---------- */
-  const state = { meta: null, pro: false, view: 'record', folder: 'all', search: '', sort: 'new', editor: null };
-  const freshMeta = () => ({ v: 1, counter: 0, freeUsed: 0, folders: [], recordings: [], settings: { strength: 'medium', format: 'mp3', kbps: 192 }, seeded: false, demoPro: false });
+  const state = { meta: null, pro: false, storePro: false, account: null, gift: false, remote: {}, view: 'record', folder: 'all', search: '', sort: 'new', editor: null };
+  const freshMeta = () => ({ v: 1, counter: 0, freeUsed: 0, folders: [], recordings: [], settings: { strength: 'medium', format: 'mp3', kbps: 192, hwKey: 'off' }, stats: { cleans: 0, cleanSeconds: 0, exports: 0, records: 0 }, seeded: false, demoPro: false, demoUser: null });
 
   /* ---------- Web platform (preview / browser) ---------- */
   const WebPlatform = (() => {
@@ -202,8 +203,21 @@ void main(){
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         return { ok: true };
       },
+      version: '1.0',
+      // Preview stand-ins. In the phone app these are Google sign-in + Firebase, the volume keys and the Wi-Fi sender.
+      cloud: {
+        available: true, demo: true,
+        async init() { },
+        user: () => (state.meta && state.meta.demoUser) || null,
+        async signIn() { state.meta.demoUser = { uid: 'preview-user', name: 'Preview User', email: 'you@example.com', photo: '' }; await saveMeta(); return { ok: true, user: state.meta.demoUser }; },
+        async signOut() { state.meta.demoUser = null; await saveMeta(); },
+        async deleteAccount() { state.meta.demoUser = null; await saveMeta(); return { ok: true }; },
+        async pull() { return null; }, async push() { }, async track() { }, async getConfig() { return null; },
+      },
+      device: { async setVolumeCapture() { }, async keepAwake(on) { try { if (on && navigator.wakeLock) this._l = await navigator.wakeLock.request('screen'); else if (this._l) { await this._l.release(); this._l = null; } } catch (e) { } } },
+      transfer: { demo: true, async start(files) { return { ok: true, url: 'http://192.168.1.24:8080/482913', count: files.length }; }, async status() { return { running: true, downloads: 0 }; }, async stop() { } },
       billing: {
-        price: '$2.00', demo: true,
+        price: '$2.00', demo: true, async identify() { return !!(state.meta && state.meta.demoPro); },
         async init() { },
         async isPro() { return !!(state.meta && state.meta.demoPro); },
         async purchase() { state.meta.demoPro = true; await saveMeta(); return { ok: true }; },
@@ -212,6 +226,7 @@ void main(){
       ads: {
         demo: true,
         async init() { },
+        setInterstitialMinutes() { },
         async showBanner() { $('#adBanner').hidden = false; document.documentElement.style.setProperty('--ad-h', '52px'); },
         async hideBanner() { $('#adBanner').hidden = true; document.documentElement.style.setProperty('--ad-h', '0px'); },
         interstitial() {
@@ -229,7 +244,7 @@ void main(){
 
   /* ---------- Persistence ---------- */
   let saveTimer = null;
-  function saveMeta() { clearTimeout(saveTimer); return new Promise(res => { saveTimer = setTimeout(async () => { try { await P.saveMeta(state.meta); } catch (e) { console.warn(e); } res(); }, 60); }); }
+  function saveMeta() { queuePush(); clearTimeout(saveTimer); return new Promise(res => { saveTimer = setTimeout(async () => { try { await P.saveMeta(state.meta); } catch (e) { console.warn(e); } res(); }, 60); }); }
   const recById = id => state.meta.recordings.find(r => r.id === id);
   const folderById = id => state.meta.folders.find(f => f.id === id);
   const folderName = id => (id && folderById(id)) ? folderById(id).name : 'Unsorted';
@@ -341,18 +356,154 @@ void main(){
       <p class="pw-note">${b.demo ? 'Preview mode: no payment is taken here. In the app this opens Google Play billing.' : 'Billed monthly through Google Play. Cancel anytime in Play Store → Subscriptions.'}</p></div>`,
       sh => {
         $('#pwBuy', sh).onclick = async e => {
-          const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Opening Google Play…';
+          const btn = e.currentTarget;
+          if (cloudOn() && !state.account) { closeSheet('signin'); return; }
+          btn.disabled = true; btn.textContent = 'Opening Google Play…';
           const r = await b.purchase(); btn.disabled = false; btn.innerHTML = `${ic('star4', 'star')}Start Pro · ${esc(b.price || '$2.00')}/month`;
           if (r.ok) closeSheet('pro'); else if (!r.quiet) toast(r.message || 'Purchase didn\'t go through', 'x');
         };
         $('#pwRestore', sh).onclick = async () => { const r = await b.restore(); if (r.pro) closeSheet('pro'); else toast('No active subscription found', 'x'); };
       });
+    if (v === 'signin') {
+      const go = await confirmSheet({ title: 'Sign in to get Pro', sub: 'Pro is saved to your Google account, so it follows you to a new phone.', confirm: 'Continue with Google' });
+      if (!go || !(await signIn())) return false;
+      return state.pro ? true : paywall(reason);
+    }
     if (v === 'pro') await becomePro();
     return v === 'pro';
   }
   async function becomePro() {
-    state.pro = true; await P.ads.hideBanner(); renderPlan(); renderSettings(); if (state.editor) renderEditorPanels();
+    state.storePro = true; refreshPro(); await syncAds(); renderAll(); queuePush();
     burst(window.innerWidth / 2, window.innerHeight * 0.4); toast('Welcome to Clear Pro', 'star4');
+  }
+
+  /* ---------- Account, cloud restore, remote settings ---------- */
+  const cloudOn = () => !!(P.cloud && P.cloud.available);
+  const refreshPro = () => { state.pro = !!(state.storePro || state.gift); };
+  function applyRemote(cfg) {
+    if (!cfg) return; state.remote = cfg;
+    if (Number.isFinite(cfg.freeSeconds) && cfg.freeSeconds >= 0 && cfg.freeSeconds <= 3600) FREE_LIMIT = Math.round(cfg.freeSeconds);
+    if (cfg.interstitialMinutes) P.ads.setInterstitialMinutes(cfg.interstitialMinutes);
+    const a = $('#announce'); a.hidden = !cfg.announcement; a.textContent = cfg.announcement || '';
+    $('#maintenance').hidden = !cfg.maintenance;
+  }
+  const adsAllowed = () => !state.pro && state.remote.adsEnabled !== false;
+  async function syncAds() { try { if (adsAllowed()) await P.ads.showBanner(); else await P.ads.hideBanner(); } catch (e) { } }
+  function profileForCloud() {
+    const m = state.meta;
+    return { freeUsed: m.freeUsed, folders: m.folders.slice(0, 200).map(f => ({ id: f.id, name: String(f.name).slice(0, 80), createdAt: f.createdAt || 0 })),
+      settings: m.settings, plan: state.storePro ? 'pro' : 'free', recordings: m.recordings.length, stats: m.stats };
+  }
+  let pushTimer = null;
+  function queuePush(isNew) {
+    if (!state.account || !cloudOn()) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => { P.cloud.push(profileForCloud(), isNew).catch(e => console.warn('sync', e)); }, isNew ? 0 : 2500);
+  }
+  function track(counts) {
+    for (const k of Object.keys(counts)) if (k in state.meta.stats) state.meta.stats[k] += counts[k];
+    if (state.account && cloudOn()) P.cloud.track(counts).catch(() => { });
+  }
+  // Bring the account's saved data onto this phone. Audio is never part of this.
+  async function restoreFromCloud() {
+    if (!state.account) return 'none';
+    let prof = null; try { prof = await P.cloud.pull(); } catch (e) { console.warn(e); return 'offline'; }
+    if (prof && prof.status === 'banned') {
+      await P.cloud.signOut(); state.account = null; state.gift = false; refreshPro();
+      await confirmSheet({ title: 'This account is suspended', sub: 'You can keep recording without an account. Contact support if you think this is a mistake.', confirm: 'OK' });
+      return 'banned';
+    }
+    const m = state.meta;
+    if (prof) {
+      m.freeUsed = Math.max(m.freeUsed || 0, prof.freeUsed || 0);
+      const have = new Set(m.folders.map(f => f.id));
+      for (const f of (prof.folders || [])) if (f && f.id && !have.has(f.id)) m.folders.push({ id: f.id, name: f.name, createdAt: f.createdAt || Date.now() });
+      if (prof.settings && !m.recordings.some(r => !r.isSample)) m.settings = Object.assign({}, freshMeta().settings, prof.settings);
+      for (const k of Object.keys(m.stats)) m.stats[k] = Math.max(m.stats[k] || 0, (prof.stats && prof.stats[k]) || 0);
+      state.gift = prof.giftPro === true;
+    } else state.gift = false;
+    try { state.storePro = await P.billing.identify(state.account.uid) || state.storePro; } catch (e) { }
+    refreshPro(); await saveMeta(); queuePush(!prof);
+    return prof ? 'restored' : 'new';
+  }
+  async function signIn() {
+    const r = await P.cloud.signIn();
+    if (!r.ok) { if (!r.quiet) toast(r.message || 'Sign-in didn\'t work', 'x'); return false; }
+    state.account = r.user;
+    const res = await restoreFromCloud();
+    if (res === 'banned') { renderAll(); return false; }
+    await syncAds(); renderAll(); applyHwCapture();
+    toast(res === 'restored' ? 'Welcome back. Your plan, folders and settings are restored.' : `Signed in as ${state.account.name || state.account.email}`, 'check');
+    return true;
+  }
+  async function signOut() {
+    const ok = await confirmSheet({ title: 'Sign out?', sub: 'Your recordings stay on this phone. Pro and your saved folders come back when you sign in again.', confirm: 'Sign out' });
+    if (!ok) return;
+    clearTimeout(pushTimer); try { await P.cloud.push(profileForCloud()); } catch (e) { }
+    await P.cloud.signOut(); state.account = null; state.gift = false;
+    try { state.storePro = await P.billing.identify(null); } catch (e) { state.storePro = false; }
+    refreshPro(); await syncAds(); renderAll(); toast('Signed out');
+  }
+  async function deleteAccount() {
+    const ok = await confirmSheet({ title: 'Delete your account?', sub: 'This permanently removes your profile, saved folders list and usage history from our database. Recordings on this phone are not touched. A Pro subscription must be cancelled separately in Google Play.', confirm: 'Delete account', danger: true });
+    if (!ok) return;
+    clearTimeout(pushTimer);
+    const r = await P.cloud.deleteAccount();
+    if (!r.ok) { toast(r.message || 'Couldn\'t delete the account', 'x'); return; }
+    state.account = null; state.gift = false; try { state.storePro = await P.billing.identify(null); } catch (e) { }
+    refreshPro(); await syncAds(); renderAll(); toast('Account deleted', 'trash');
+  }
+  function renderAll() { renderPlan(); renderLists(); renderSettings(); if (state.editor) renderEditorPanels(); }
+
+  /* ---------- Volume-button control ---------- */
+  const HW_LABEL = { off: 'Off', up: 'Volume up', down: 'Volume down', both: 'Either' };
+  function applyHwCapture() {
+    const on = state.meta.settings.hwKey !== 'off' && state.view === 'record' && !state.editor;
+    P.device.setVolumeCapture(on);
+    const h = $('#hwHint'); h.hidden = state.meta.settings.hwKey === 'off';
+    h.textContent = { up: 'Volume up starts, pauses and resumes', down: 'Volume down starts, pauses and resumes', both: 'Any volume button starts, pauses and resumes' }[state.meta.settings.hwKey] || '';
+  }
+  let lastHw = 0;
+  function onHardwareKey(key) {
+    const want = state.meta && state.meta.settings.hwKey;
+    if (!want || want === 'off' || (want !== 'both' && want !== key)) return;
+    if (state.view !== 'record' || state.editor || sheetOpen()) return;
+    if (Date.now() - lastHw < 450) return; lastHw = Date.now();
+    if (R.status === 'idle') startRec(); else { togglePause(); toast(R.status === 'paused' ? 'Paused' : 'Recording', R.status === 'paused' ? 'pause' : 'mic'); }
+    if (navigator.vibrate) navigator.vibrate(R.status === 'paused' ? [10, 60, 10] : 14);
+  }
+
+  /* ---------- Send to PC (same Wi-Fi) ---------- */
+  async function sendToPC(recs) {
+    recs = recs.slice(0, 40); if (!recs.length) { toast('Nothing to send yet', 'x'); return; }
+    const s = state.meta.settings;
+    openSheet(`<h2>Send to PC</h2><p class="sub" id="spSub">Preparing ${recs.length} file${recs.length > 1 ? 's' : ''}<span class="caret"></span></p>
+      <div id="spBody"></div><div class="sheet-actions"><button class="btn-2" id="spStop">Cancel</button></div>`,
+      sh => { $('#spStop', sh).onclick = () => closeSheet('stop'); }).then(() => { cancelled = true; clearInterval(poll); P.transfer.stop(); });
+    let cancelled = false, poll = 0;
+    try {
+      const files = [], used = new Set();
+      for (const r of recs) {
+        if (cancelled) return;
+        const key = r.hasProc ? '.proc' : r.cleaned ? '.clean' : '.orig';
+        const a = await loadSamples(r.id + key) || await loadSamples(r.id + '.orig'); if (!a) continue;
+        const bytes = s.format === 'mp3' ? await E.encodeMP3(a.samples, a.sampleRate, s.kbps) : E.encodeWAV(a.samples, a.sampleRate);
+        let name = `${safeFile(r.name)}.${s.format}`, n = 2; while (used.has(name)) name = `${safeFile(r.name)} (${n++}).${s.format}`; used.add(name);
+        files.push({ name, bytes });
+      }
+      if (cancelled) return;
+      const res = await P.transfer.start(files);
+      if (cancelled) { P.transfer.stop(); return; }
+      if (!res.ok) { closeSheet(null); toast(res.message || 'Couldn\'t start sending', 'x'); return; }
+      $('#spSub').textContent = 'Keep this screen open. Your phone and computer must be on the same Wi-Fi.';
+      $('#spBody').innerHTML = `<ol class="steps"><li>On your computer, open any browser (Chrome, Edge, Safari).</li><li>Type this address in the address bar:</li></ol>
+        <button class="url-box" id="spUrl" type="button" aria-label="Copy address"><span class="mono">${esc(res.url.replace(/^http:\/\//, ''))}</span>${ic('copy')}</button>
+        <ol class="steps" start="3"><li>Click Download next to each recording.</li></ol>
+        <p class="fine" id="spStat">${res.count} file${res.count > 1 ? 's' : ''} ready as ${s.format.toUpperCase()} · nothing is uploaded to the internet${P.transfer.demo ? ' · preview: this address is an example' : ''}</p>`;
+      $('#spStop').textContent = 'Done';
+      $('#spUrl').onclick = async () => { try { await navigator.clipboard.writeText(res.url); toast('Address copied'); } catch (e) { } };
+      poll = setInterval(async () => { const st = await P.transfer.status(); const el = $('#spStat'); if (!el) return clearInterval(poll); if (st.downloads) el.innerHTML = `<b>${st.downloads}</b> download${st.downloads > 1 ? 's' : ''} so far · nothing is uploaded to the internet`; if (!st.running && !P.transfer.demo) { clearInterval(poll); el.textContent = 'Sending stopped. Open Send to PC again to continue.'; } }, 1500);
+    } catch (e) { console.error(e); closeSheet(null); toast('Couldn\'t prepare the files', 'x'); }
   }
 
   /* ---------- Plan chip ---------- */
@@ -371,7 +522,7 @@ void main(){
     state.view = view;
     $$('.view').forEach(v => { const on = v.dataset.view === view; v.hidden = !on; if (on) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); } });
     $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.go === view)));
-    moveTabPill();
+    moveTabPill(); applyHwCapture();
     if (view === 'library') renderLibrary();
     if (view === 'settings') renderSettings();
   }
@@ -432,10 +583,12 @@ void main(){
       { icon: 'play', label: 'Open', value: 'open' },
       { icon: 'edit', label: 'Rename', value: 'rename' },
       { icon: 'move', label: `Move to folder (now: ${folderName(r.folderId)})`, value: 'move' },
+      { icon: 'send', label: 'Send to PC over Wi-Fi', value: 'send' },
       { icon: 'trash', label: 'Delete', value: 'delete', danger: true }]);
     if (v === 'open') openEditor(id);
     if (v === 'rename') await renameRec(r);
     if (v === 'move') await moveRec(r);
+    if (v === 'send') sendToPC([r]);
     if (v === 'delete') await deleteRec(r);
   }
   async function renameRec(r) {
@@ -469,9 +622,23 @@ void main(){
     const m = state.meta, s = m.settings;
     const bytes = m.recordings.reduce((a, r) => a + r.duration * r.sampleRate * 2 * (1 + (r.cleaned ? 1 : 0) + (r.hasProc ? 1 : 0)), 0);
     $('#proCard').innerHTML = state.pro
-      ? `<div class="glow-emerald"></div><div class="glow-spark"></div><div class="eyebrow">Plan · Pro</div><h2>You're on Clear Pro ${STAR()}</h2><p>Unlimited cleaning, every effect, no ads. Manage or cancel anytime in Google Play → Subscriptions.</p>`
-      : `<div class="glow-emerald"></div><div class="glow-spark"></div><div class="eyebrow">Plan · Free</div><h2>Clean without limits ${STAR()}</h2><p>You've used ${m.freeUsed} of ${FREE_LIMIT} free seconds. Pro removes the limit, unlocks all 12 effects and turns off ads.</p><button class="cta" id="setPro">${ic('star4', 'star')}Get Pro · ${esc(P.billing.price || '$2.00')}/month</button>`;
+      ? `<div class="glow-emerald"></div><div class="glow-spark"></div><div class="eyebrow">Plan · Pro</div><h2>You're on Clear Pro ${STAR()}</h2><p>${state.gift && !state.storePro ? 'Pro was added to your account as a gift. Unlimited cleaning, every effect, no ads.' : 'Unlimited cleaning, every effect, no ads. Manage or cancel anytime in Google Play → Subscriptions.'}</p>`
+      : `<div class="glow-emerald"></div><div class="glow-spark"></div><div class="eyebrow">Plan · Free</div><h2>Clean without limits ${STAR()}</h2><p>You've used ${Math.min(m.freeUsed, FREE_LIMIT)} of ${FREE_LIMIT} free seconds. Pro removes the limit, unlocks all 12 effects and turns off ads.</p><button class="cta" id="setPro">${ic('star4', 'star')}Get Pro · ${esc(P.billing.price || '$2.00')}/month</button>`;
     const sp = $('#setPro'); if (sp) sp.onclick = () => paywall();
+    const acc = $('#accountCard'), u = state.account;
+    $('#accountGroup').hidden = $('#accountTitle').hidden = !cloudOn();
+    if (cloudOn()) {
+      acc.innerHTML = u
+        ? `<div class="row"><div class="acct"><span class="avatar">${esc((u.name || u.email || '?').charAt(0).toUpperCase())}</span><div class="row-label"><b>${esc(u.name || 'Signed in')}</b><span>${esc(u.email)}</span></div></div><button class="pill-btn" id="signOutBtn" type="button">Sign out</button></div>
+           <div class="row"><div class="row-label"><b>Synced to your account</b><span>Pro plan, free seconds, folders and settings. Audio stays on this phone.</span></div></div>
+           <div class="row"><div class="row-label"><b>Delete account</b><span>Removes your profile from our database</span></div><button class="pill-btn" id="delAccBtn" type="button" style="color:var(--ember)">Delete</button></div>`
+        : `<div class="row"><div class="row-label"><b>Sign in with Google</b><span>Keeps your Pro plan, folders and settings when you change phones. Optional.</span></div></div>
+           <div style="padding:0 16px 16px"><button class="btn-2" id="signInBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.700 3.300-8z"/><path fill="#34A853" d="M12 23c3 0 5.500-1 7.300-2.700l-3.500-2.700c-1 .7-2.300 1.100-3.800 1.100-2.900 0-5.300-1.900-6.200-4.600H2.200v2.800A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.800 14.100a6.600 6.600 0 0 1 0-4.200V7.100H2.200a11 11 0 0 0 0 9.800z"/><path fill="#EA4335" d="M12 5.400c1.600 0 3.100.6 4.200 1.600l3.100-3.100A11 11 0 0 0 2.200 7.100l3.600 2.800C6.700 7.300 9.100 5.400 12 5.400z"/></svg>Continue with Google</button></div>`;
+      const sb = $('#signInBtn'); if (sb) sb.onclick = async () => { sb.disabled = true; await signIn(); sb.disabled = false; };
+      const so = $('#signOutBtn'); if (so) so.onclick = signOut;
+      const da = $('#delAccBtn'); if (da) da.onclick = deleteAccount;
+    }
+    setSeg($('#setHw'), s.hwKey || 'off');
     setSeg($('#setStrength'), s.strength); setSeg($('#setFormat'), s.format);
     $('#setKbps').value = String(s.kbps);
     $('#storageInfo').textContent = `${m.recordings.length} recording${m.recordings.length === 1 ? '' : 's'} · ${(bytes / 1048576).toFixed(1)} MB · ${m.folders.length} folder${m.folders.length === 1 ? '' : 's'}`;
@@ -519,7 +686,7 @@ void main(){
     R.mr.start(250);
     const ac = audioCtx(); await ac.resume();
     R.src = ac.createMediaStreamSource(R.stream); R.analyser = ac.createAnalyser(); R.analyser.fftSize = 1024; R.src.connect(R.analyser);
-    R.levels = []; R.before = 0; R.startAt = performance.now(); R.status = 'recording'; setRecUI(); recLoop();
+    R.levels = []; R.before = 0; R.startAt = performance.now(); R.status = 'recording'; setRecUI(); recLoop(); P.device.keepAwake(true);
     if (navigator.vibrate) navigator.vibrate(12);
   }
   function togglePause() {
@@ -531,7 +698,7 @@ void main(){
     cancelAnimationFrame(R.raf);
     if (R.stream) R.stream.getTracks().forEach(t => t.stop());
     try { R.src && R.src.disconnect(); } catch (e) { }
-    R.stream = R.mr = R.src = R.analyser = null; R.status = 'idle'; R.levels = [];
+    R.stream = R.mr = R.src = R.analyser = null; R.status = 'idle'; R.levels = []; P.device.keepAwake(false);
     liveLevel = 0; document.documentElement.style.setProperty('--lvl', 0);
     setRecUI(); drawLive(); $('#recTime').innerHTML = '00:00<span>.0</span>';
   }
@@ -548,6 +715,7 @@ void main(){
         state.meta.counter += 1;
         const folderId = folderById(state.folder) ? state.folder : null;
         const rec = await addRecording({ samples, sr, name: `Recording ${String(state.meta.counter).padStart(3, '0')}`, folderId });
+        track({ records: 1 }); queuePush();
         toast('Saved to your library');
         openEditor(rec.id);
       } catch (e) { console.error(e); toast('Couldn\'t save that recording', 'x'); }
@@ -648,7 +816,7 @@ void main(){
     plStop(); PL.offset = 0;
     const ed = { rec, orig: null, clean: null, proc: null, sr: rec.sampleRate, ver: 'final', peaks: {}, morph: null, busy: false };
     state.editor = ed;
-    const el = $('#editor'); el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); document.body.classList.add('ed-open');
+    const el = $('#editor'); el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); document.body.classList.add('ed-open'); applyHwCapture();
     renderEditorHead(); renderEditorPanels();
     $('#edWave').getContext('2d').clearRect(0, 0, 9999, 9999);
     const o = await loadSamples(id + '.orig'); if (!o || state.editor !== ed) { if (!o) toast('This recording\'s audio is missing', 'x'); return; }
@@ -660,7 +828,7 @@ void main(){
   }
   function closeEditor() {
     plStop(); PL.buf = null; state.editor = null;
-    const el = $('#editor'); el.classList.add('closing'); el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); document.body.classList.remove('ed-open');
+    const el = $('#editor'); el.classList.add('closing'); el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); document.body.classList.remove('ed-open'); applyHwCapture();
     setTimeout(() => el.classList.remove('closing'), 560);
     renderLists();
   }
@@ -756,6 +924,8 @@ void main(){
       await P.putAudio(r.id + '.clean', E.encodeWAV(y, ed.sr));
       if ((r.effect && r.effect !== 'none') || r.pitch) { ed.proc = await E.applyEffect(y, ed.sr, r.effect || 'none', { pitch: r.pitch || 0 }); await P.putAudio(r.id + '.proc', E.encodeWAV(ed.proc, ed.sr)); r.hasProc = true; }
       if (charge) { state.meta.freeUsed += cost; r.freeCharged = true; }
+      if (!r.isSample) track({ cleans: 1, cleanSeconds: cost });
+      queuePush();
       r.peaks = E.peaks(edSamples(ed, 'final'), 36);
       await saveMeta();
       ed.peaks = {}; ed.ver = 'final'; setBuffer(edSamples(ed, 'final'), ed.sr);
@@ -799,7 +969,8 @@ void main(){
       const res = await P.exportFile(name, bytes, s.format === 'mp3' ? 'audio/mpeg' : 'audio/wav');
       if (res.ok) {
         toast(res.note || `Exported ${s.format.toUpperCase()} · ${(bytes.length / 1048576).toFixed(1)} MB`, 'share');
-        if (!state.pro) setTimeout(() => P.ads.interstitial(), res.note ? 2400 : 600);
+        track({ exports: 1 }); queuePush();
+        if (adsAllowed()) setTimeout(() => P.ads.interstitial(), res.note ? 2400 : 600);
       } else if (!res.quiet) toast(res.message || 'Export failed', 'x');
     } catch (e) { console.error(e); toast(String(e.message || e).includes('MP3') ? 'MP3 encoder didn\'t load. Try WAV.' : 'Export failed', 'x'); }
     finally { btn.disabled = false; btn.classList.remove('busy'); renderEditorPanels(); }
@@ -831,7 +1002,9 @@ void main(){
     if (state.view !== 'record') { go('record'); return true; }
     return false;
   }
-  window.ClearApp = { onBack };
+  window.ClearApp = { onBack, onHardwareKey };
+  window.addEventListener('clearHardwareKey', e => onHardwareKey(e.key || (e.detail && e.detail.key)));
+  document.addEventListener('keydown', e => { if (e.key === 'AudioVolumeUp') onHardwareKey('up'); if (e.key === 'AudioVolumeDown') onHardwareKey('down'); });
 
   /* ---------- Wire up ---------- */
   function bind() {
@@ -855,19 +1028,21 @@ void main(){
       const f = e.target.closest('[data-folder]'); if (f) { state.folder = f.dataset.folder; renderLibrary(); return; }
       if (e.target.closest('#chipAdd')) { createFolder().then(fo => { if (fo) { state.folder = fo.id; renderLibrary(); } }); }
     });
-    $('#newFolderBtn').onclick = () => createFolder().then(fo => { if (fo) { state.folder = fo.id; renderLibrary(); } });
     $('#folderMenu').onclick = folderMenu;
     $('#search').oninput = e => { state.search = e.target.value; renderLibrary(); };
     $('#sortSel').onchange = e => { state.sort = e.target.value; renderLibrary(); };
     // settings
     $('#setStrength').onclick = e => { const b = e.target.closest('button'); if (!b) return; state.meta.settings.strength = b.dataset.v; setSeg($('#setStrength'), b.dataset.v); saveMeta(); };
     $('#setFormat').onclick = e => { const b = e.target.closest('button'); if (!b) return; state.meta.settings.format = b.dataset.v; setSeg($('#setFormat'), b.dataset.v); saveMeta(); };
-    $('#setKbps').onchange = e => { state.meta.settings.kbps = +e.target.value; saveMeta(); };
+    $('#setKbps').onchange = e => { state.meta.settings.kbps = +e.target.value; saveMeta(); queuePush(); };
+    $('#setHw').onclick = e => { const b = e.target.closest('button'); if (!b) return; state.meta.settings.hwKey = b.dataset.v; setSeg($('#setHw'), b.dataset.v); saveMeta(); queuePush(); applyHwCapture(); if (b.dataset.v !== 'off') toast(`${HW_LABEL[b.dataset.v]} now controls recording on the Record screen`, 'mic'); };
+    $('#libSend').onclick = () => sendToPC(filtered());
+    $('#edSend').onclick = () => state.editor && sendToPC([state.editor.rec]);
     $('#restoreBtn').onclick = async () => { const r = await P.billing.restore(); if (r.pro && !state.pro) becomePro(); else toast(r.pro ? 'Pro is already active' : 'No active subscription found', r.pro ? 'check' : 'x'); };
     $('#resetBtn').onclick = async () => {
       const ok = await confirmSheet({ title: 'Reset the preview?', sub: 'Deletes every recording and folder in this preview and restores the 30 free seconds.', confirm: 'Reset everything', danger: true });
       if (!ok) return; for (const r of state.meta.recordings.slice()) await removeRecording(r.id);
-      state.meta = freshMeta(); state.pro = false; await seed(); await saveMeta(); P.ads.showBanner(); renderPlan(); renderLists(); renderSettings(); toast('Preview reset');
+      state.meta = freshMeta(); state.pro = state.storePro = state.gift = false; state.account = null; await seed(); await saveMeta(); P.ads.showBanner(); applyHwCapture(); renderPlan(); renderLists(); renderSettings(); toast('Preview reset');
     };
     // editor
     $('#edBack').onclick = closeEditor;
@@ -919,13 +1094,20 @@ void main(){
     const t0 = performance.now();
     try { await P.init(); } catch (e) { console.warn(e); }
     let meta = null; try { meta = await P.loadMeta(); } catch (e) { }
-    state.meta = Object.assign(freshMeta(), meta || {}); state.meta.settings = Object.assign(freshMeta().settings, state.meta.settings || {});
+    state.meta = Object.assign(freshMeta(), meta || {}); state.meta.settings = Object.assign(freshMeta().settings, state.meta.settings || {}); state.meta.stats = Object.assign(freshMeta().stats, state.meta.stats || {});
     await seed();
-    try { await P.billing.init(); state.pro = await P.billing.isPro(); } catch (e) { state.pro = false; }
-    try { await P.ads.init(); if (!state.pro) await P.ads.showBanner(); } catch (e) { }
+    try { await P.cloud.init(); state.account = P.cloud.user(); } catch (e) { console.warn('cloud', e); }
+    try { await P.billing.init(); state.storePro = await P.billing.isPro(); } catch (e) { state.storePro = false; }
+    refreshPro();
+    try { applyRemote(await P.cloud.getConfig()); } catch (e) { }
+    try { await P.ads.init(); } catch (e) { }
+    await syncAds();
+    // Account restore runs in the background so the app opens instantly, even offline.
+    if (state.account) restoreFromCloud().then(r => { if (r !== 'none') { syncAds(); renderAll(); } }).catch(() => { });
+    track({ opens: 1 });
     renderPlan(); renderRecent(); setRecUI();
     ['#strengthSeg', '#fmtSeg', '#kbpsSeg', '#setStrength', '#setFormat'].forEach(s => setSeg($(s), segValue($(s)) || $('button', $(s)).dataset.v));
-    drawLive(); idleLoop(); moveTabPill();
+    drawLive(); idleLoop(); moveTabPill(); applyHwCapture();
     const hero = $('#recStage'), btn = $('#recBtn');
     createDither($('#recDither'), {
       cell: 6, bg: [0.067, 0.075, 0.082],

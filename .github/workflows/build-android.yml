@@ -55,13 +55,21 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-          if [ -f app/upload-key.jks ]; then ./gradlew bundleRelease --no-daemon; fi
+          if [ -f app/upload-key.jks ]; then ./gradlew bundleRelease assembleRelease --no-daemon; fi
 
       - name: Upload test APK (install this on your phone)
         uses: actions/upload-artifact@v4
         with:
           name: clear-audio-recorder-test-apk
           path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload signed APK (use this one to test Google sign-in)
+        if: hashFiles('android/app/build/outputs/apk/release/*.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: clear-audio-recorder-signed-apk
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
 
       - name: Upload Play Store bundle (.aab)

@@ -22,6 +22,7 @@ jobs:
             -storepass "$PASS" -keypass "$PASS" \
             -dname "CN=Clear Audio Recorder, O=Daxator, C=PK"
           base64 -w0 upload-key.jks > KEYSTORE_BASE64.txt
+          SHA1=$(keytool -list -v -keystore upload-key.jks -alias upload -storepass "$PASS" | grep "SHA1:" | sed 's/.*SHA1: //')
           {
             echo "Add these 4 secrets in GitHub: Settings > Secrets and variables > Actions > New repository secret"
             echo ""
@@ -29,6 +30,10 @@ jobs:
             echo "KEYSTORE_PASSWORD = $PASS"
             echo "KEY_ALIAS = upload"
             echo "KEY_PASSWORD = $PASS"
+            echo ""
+            echo "For Google sign-in, add this SHA-1 fingerprint in Firebase:"
+            echo "Project settings > Your apps > Android app > Add fingerprint"
+            echo "SHA-1 = $SHA1"
           } > SECRETS-TO-ADD.txt
       - uses: actions/upload-artifact@v4
         with:

@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#08090a">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!--ARTIFACT-START-->
+<title>Clear Admin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&family=Unbounded:wght@400..700&display=swap">
+<style>
+/* Layout: sticky top bar with pill nav, then one scrolling column (max 1180px): KPI grid, charts, tables. KYRO system. */
+:root {
+  --ink: #08090a; --carbon: #111315; --graphite: #181b1e; --steel: #2a2f33; --ash: #8f969b; --fog: #c3c8cb; --bone: #eeeae2;
+  --spark: #d6ff3f; --spark-hi: #e2ff6e; --spark-ink: #0b0d02; --emerald: #1ed68a; --ember: #ff6b5e; --amber: #ffd236;
+  --hair: rgba(255,255,255,.07); --hair-2: rgba(255,255,255,.12);
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, Menlo, monospace;
+  --ease: cubic-bezier(.16,1,.3,1); --pill: 999px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--ink); color: var(--bone); font: 15px/1.5 var(--font-body); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; }
+button:disabled { opacity: .45; cursor: default; }
+:focus-visible { outline: 2px solid var(--spark); outline-offset: 2px; border-radius: 8px; }
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 500; letter-spacing: -.03em; text-wrap: balance; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sparkle { display: inline-block; width: 11px; height: 11px; color: var(--spark); filter: drop-shadow(0 0 4px rgba(214,255,63,.67)) drop-shadow(0 0 10px rgba(214,255,63,.33)); animation: twinkle 2.8s ease-in-out infinite; }
+.sparkle svg { width: 100%; height: 100%; display: block; }
+@keyframes twinkle { 0%,100% { opacity: .35; transform: scale(.6) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: rgba(8,9,10,.88); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--hair); }
+.top .wrap { display: flex; align-items: center; gap: 16px; height: 60px; }
+.brand { position: relative; display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
+.wordmark { font-family: var(--font-display); font-weight: 600; font-size: 16px; letter-spacing: .26em; background: linear-gradient(180deg,#fbf8f1,var(--bone) 45%,#a9adb0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .sparkle { position: absolute; top: -8px; left: 78px; animation: none; }
+.brand small { font-family: var(--font-mono); font-size: 11px; color: var(--ash); margin-left: 12px; }
+nav.tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+nav.tabs button { flex: none; height: 34px; padding: 0 14px; border-radius: var(--pill); font-size: 14px; color: var(--ash); transition: color .2s, background .2s; }
+nav.tabs button:hover { color: var(--fog); }
+nav.tabs button[aria-selected="true"] { color: var(--bone); background: rgba(255,255,255,.08); }
+.who { display: flex; align-items: center; gap: 10px; flex: none; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--graphite); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); font-weight: 600; font-size: 14px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: var(--pill); font-weight: 600; font-size: 14px; white-space: nowrap; transition: transform .2s var(--ease), background .2s, box-shadow .3s; }
+.btn:not(:disabled):active { transform: scale(.97); }
+.btn-primary { color: var(--spark-ink); background: var(--spark); box-shadow: 0 0 0 1px rgba(214,255,63,.5), 0 8px 30px -8px rgba(214,255,63,.55); }
+.btn-primary:not(:disabled):hover { background: var(--spark-hi); box-shadow: 0 0 0 1px rgba(214,255,63,.7), 0 10px 44px -6px rgba(214,255,63,.7); }
+.btn-ghost { color: var(--bone); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair-2); }
+.btn-ghost:not(:disabled):hover { background: rgba(255,255,255,.1); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+.btn-danger { color: var(--ember); }
+
+main { padding-block: 24px 80px; }
+.banner { margin-bottom: 16px; padding: 10px 16px; border-radius: 14px; font-size: 13px; border: 1px solid rgba(214,255,63,.2); background: rgba(214,255,63,.07); color: var(--spark); }
+.banner.warn { border-color: rgba(255,210,54,.25); background: rgba(255,210,54,.07); color: var(--amber); }
+.hero { position: relative; overflow: hidden; isolation: isolate; border-radius: 28px; border: 1px solid var(--hair); background: var(--carbon); padding: 28px 24px; margin-bottom: 14px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; animation: rise .5s var(--ease) both; }
+.hero::before { content: ""; position: absolute; z-index: -1; top: -140px; right: -80px; width: 520px; height: 360px; background: radial-gradient(60% 60% at 50% 50%, rgba(30,214,138,.28), transparent 70%); }
+.hero::after { content: ""; position: absolute; z-index: -1; bottom: -170px; left: -90px; width: 420px; height: 320px; background: radial-gradient(50% 50% at 50% 50%, rgba(214,255,63,.2), transparent 70%); }
+.hero .eyebrow { font-family: var(--font-mono); font-size: 12px; color: var(--ash); }
+.hero h1 { font-size: clamp(24px, 4vw, 34px); margin-top: 8px; display: flex; gap: 10px; align-items: flex-start; }
+.hero h1 .sparkle { width: 16px; height: 16px; margin-top: 4px; }
+.hero p { margin: 8px 0 0; color: var(--fog); max-width: 60ch; font-size: 14px; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
+.kpi { background: var(--carbon); border: 1px solid var(--hair); border-radius: 20px; padding: 16px 18px; min-width: 0; animation: rise .5s var(--ease) both; animation-delay: calc(var(--i,0) * 40ms); }
+.kpi .label { font-family: var(--font-mono); font-size: 11.5px; color: var(--ash); }
+.kpi .value { font-family: var(--font-display); font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -.04em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.kpi .sub { font-size: 12.5px; color: var(--ash); margin-top: 2px; }
+.kpi .sub b { font-weight: 600; color: var(--spark); }
+.kpi.lead { border-color: rgba(214,255,63,.3); background: linear-gradient(180deg, rgba(214,255,63,.07), transparent 70%), var(--carbon); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
+.panel { background: var(--carbon); border: 1px solid var(--hair); border-radius: 22px; padding: 18px; min-width: 0; animation: rise .5s var(--ease) both; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel-head h2 { font-size: 15px; letter-spacing: -.02em; }
+.panel-head .note { font-family: var(--font-mono); font-size: 11.5px; color: var(--ash); text-align: right; }
+.chart { width: 100%; height: 170px; display: block; overflow: visible; }
+.chart .bar { transform-box: fill-box; transform-origin: bottom; animation: grow .7s var(--ease) both; }
+.chart text { font-family: var(--font-mono); font-size: 10px; fill: var(--ash); }
+.chart .grid { stroke: rgba(255,255,255,.06); stroke-width: 1; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--fog); margin-top: 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.split { display: flex; height: 12px; border-radius: var(--pill); overflow: hidden; background: var(--steel); margin: 6px 0 12px; }
+.split span { display: block; height: 100%; transition: width .8s var(--ease); }
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.meter-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; font-size: 13.5px; }
+.meter-row .track { grid-column: 1 / -1; height: 6px; border-radius: 6px; background: var(--steel); overflow: hidden; }
+.meter-row .track span { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--emerald), var(--spark)); transition: width .8s var(--ease); }
+.meter-row .n { font-family: var(--font-mono); font-size: 12.5px; color: var(--fog); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+.search { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px; border-radius: var(--pill); background: var(--carbon); border: 1px solid var(--hair-2); }
+.search:focus-within { border-color: rgba(214,255,63,.5); box-shadow: 0 0 0 4px rgba(214,255,63,.08); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; }
+.search input::placeholder { color: var(--ash); }
+select, .field { height: 44px; border-radius: 14px; border: 1px solid var(--hair-2); background: var(--ink); padding: 0 14px; outline: 0; }
+select { border-radius: var(--pill); background: var(--carbon); }
+.field:focus, textarea.field:focus { border-color: rgba(214,255,63,.55); box-shadow: 0 0 0 4px rgba(214,255,63,.08); }
+textarea.field { height: auto; padding: 12px 14px; width: 100%; resize: vertical; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--hair); border-radius: 20px; background: var(--carbon); }
+table { width: 100%; border-collapse: collapse; min-width: 820px; font-size: 13.5px; }
+th { text-align: left; font-family: var(--font-mono); font-weight: 400; font-size: 11.5px; color: var(--ash); padding: 12px 14px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+td { padding: 11px 14px; border-bottom: 1px solid var(--hair); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: rgba(255,255,255,.025); }
+td .name { font-weight: 600; } td .email { color: var(--ash); font-size: 12.5px; }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: var(--pill); font-size: 11.5px; font-weight: 600; background: rgba(255,255,255,.07); color: var(--fog); white-space: nowrap; }
+.chip.pro { background: rgba(214,255,63,.12); color: var(--spark); }
+.chip.gift { background: rgba(30,214,138,.13); color: var(--emerald); }
+.chip.ban { background: rgba(255,107,94,.13); color: var(--ember); }
+.actions { display: flex; gap: 6px; justify-content: flex-end; }
+.empty { padding: 40px 20px; text-align: center; color: var(--fog); }
+
+.form { display: grid; gap: 18px; max-width: 640px; }
+.form label { display: block; font-size: 13px; font-weight: 500; color: var(--fog); margin-bottom: 6px; }
+.form .hint { font-size: 12.5px; color: var(--ash); margin-top: 6px; }
+.form .field { width: 100%; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.switch { position: relative; width: 50px; height: 30px; flex: none; border-radius: var(--pill); background: var(--steel); transition: background .25s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--bone); transition: transform .3s var(--ease); }
+.switch[aria-checked="true"] { background: var(--spark); box-shadow: 0 0 20px -4px rgba(214,255,63,.6); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); background: var(--spark-ink); }
+
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; position: relative; overflow: hidden; }
+.gate::before { content: ""; position: absolute; left: 50%; top: 40%; width: 720px; height: 460px; transform: translate(-50%,-50%); background: radial-gradient(50% 50% at 50% 50%, rgba(214,255,63,.16), transparent 70%); pointer-events: none; }
+.gate-card { position: relative; width: min(420px, 100%); text-align: center; }
+.gate-card .wordmark { font-size: 26px; }
+.gate-card .brand .sparkle { left: auto; right: -20px; top: -12px; width: 16px; height: 16px; animation: twinkle 2.8s ease-in-out infinite; }
+.gate-card h1 { font-size: 26px; margin: 30px 0 8px; }
+.gate-card p { color: var(--fog); margin: 0 0 22px; }
+.gate-card .btn { width: 100%; height: 52px; font-size: 15px; }
+.uid { margin-top: 16px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--hair-2); background: var(--carbon); font-family: var(--font-mono); font-size: 12.5px; overflow-wrap: anywhere; color: var(--spark); user-select: all; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 50; padding: 10px 18px; border-radius: var(--pill); background: var(--graphite); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), 0 16px 40px rgba(0,0,0,.55); font-size: 13.5px; font-weight: 500; transition: transform .4s var(--ease), opacity .3s; max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+dialog { border: 1px solid rgba(255,255,255,.1); border-radius: 24px; background: var(--carbon); color: var(--bone); padding: 24px; width: min(420px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.7); }
+dialog h2 { font-size: 18px; margin-bottom: 8px; } dialog p { color: var(--fog); margin: 0 0 20px; font-size: 14px; }
+dialog .actions { justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); } .grid2, .grid3 { grid-template-columns: minmax(0,1fr); } .brand small { display: none; } }
+@media (max-width: 520px) { .top .wrap { gap: 10px; } .who .btn { display: none; } .hero { padding: 22px 18px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+</style>
+
+<div id="gate" class="gate" hidden>
+  <div class="gate-card">
+    <div class="brand"><span class="wordmark">CLEAR</span><span class="sparkle"><svg viewBox="0 0 24 24"><path d="M12 0c.9 6.4 4.9 10.6 12 12-7.1 1.4-11.1 5.600-12 12-.9-6.400-4.900-10.600-12-12C7.100 10.600 11.100 6.400 12 0z" fill="currentColor"/></svg></span></div>
+    <h1 id="gateTitle">Admin sign-in</h1>
+    <p id="gateText">Only the owner's Google account can open this panel.</p>
+    <button class="btn btn-primary" id="gateBtn" type="button">Continue with Google</button>
+    <div class="uid" id="gateUid" hidden></div>
+    <button class="btn btn-ghost" id="gateOut" type="button" style="margin-top:10px" hidden>Use a different account</button>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top"><div class="wrap">
+    <div class="brand"><span class="wordmark">CLEAR</span><span class="sparkle"><svg viewBox="0 0 24 24"><path d="M12 0c.9 6.4 4.9 10.6 12 12-7.1 1.4-11.1 5.600-12 12-.9-6.400-4.900-10.600-12-12C7.100 10.600 11.100 6.400 12 0z" fill="currentColor"/></svg></span><small>admin</small></div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" type="button" data-tab="overview" aria-selected="true">Overview</button>
+      <button role="tab" type="button" data-tab="users" aria-selected="false">Users</button>
+      <button role="tab" type="button" data-tab="settings" aria-selected="false">App settings</button>
+    </nav>
+    <div class="who"><button class="btn btn-ghost btn-sm" id="refreshBtn" type="button">Refresh</button><span class="avatar" id="whoAvatar" title="">A</span><button class="btn btn-ghost btn-sm" id="outBtn" type="button">Sign out</button></div>
+  </div></header>
+
+  <main class="wrap">
+    <div class="banner warn" id="demoBanner" hidden>Sample data. These are made-up numbers so you can see the dashboard. Add your Firebase keys to admin/config.js to see your real users.</div>
+    <div class="banner warn" id="errBanner" hidden></div>
+
+    <section id="tab-overview">
+      <div class="hero">
+        <div><div class="eyebrow" id="heroDate"></div>
+          <h1><span id="heroTitle">Clear Audio Recorder</span><span class="sparkle"><svg viewBox="0 0 24 24"><path d="M12 0c.9 6.4 4.9 10.6 12 12-7.1 1.4-11.1 5.600-12 12-.9-6.400-4.900-10.600-12-12C7.100 10.600 11.100 6.400 12 0z" fill="currentColor"/></svg></span></h1>
+          <p id="heroLine"></p></div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="grid2">
+        <div class="panel"><div class="panel-head"><h2>New sign-ups</h2><span class="note" id="nSign"></span></div><svg class="chart" id="chSign" role="img" aria-label="New sign-ups per day, last 30 days"></svg></div>
+        <div class="panel"><div class="panel-head"><h2>Daily active users</h2><span class="note" id="nDau"></span></div><svg class="chart" id="chDau" role="img" aria-label="Daily active users, last 30 days"></svg></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><div class="panel-head"><h2>What people do</h2><span class="note">per day, last 30 days</span></div><svg class="chart" id="chAct" role="img" aria-label="Recordings, cleans and exports per day"></svg>
+          <div class="legend"><span><i style="background:#d6ff3f"></i>Cleans</span><span><i style="background:#1ed68a"></i>Recordings</span><span><i style="background:#eeeae2"></i>Exports</span></div></div>
+        <div class="panel"><div class="panel-head"><h2>Free to Pro funnel</h2><span class="note">signed-in users</span></div><div class="rows" id="funnel"></div></div>
+      </div>
+      <div class="grid3">
+        <div class="panel"><div class="panel-head"><h2>Plans</h2></div><div id="plans"></div></div>
+        <div class="panel"><div class="panel-head"><h2>App versions</h2></div><div class="rows" id="versions"></div></div>
+        <div class="panel"><div class="panel-head"><h2>Most active users</h2><span class="note">by cleans</span></div><div class="rows" id="topUsers"></div></div>
+      </div>
+    </section>
+
+    <section id="tab-users" hidden>
+      <div class="toolbar">
+        <label class="search" for="q"><input id="q" type="search" placeholder="Search name or email" autocomplete="off"></label>
+        <select id="fPlan" aria-label="Filter"><option value="all">All users</option><option value="pro">Pro</option><option value="free">Free</option><option value="gift">Gifted Pro</option><option value="banned">Suspended</option><option value="wall">Used all free seconds</option></select>
+        <select id="fSort" aria-label="Sort"><option value="active">Last active</option><option value="new">Newest</option><option value="cleans">Most cleans</option></select>
+        <button class="btn btn-ghost" id="csvBtn" type="button">Export CSV</button>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>User</th><th>Plan</th><th>Free used</th><th>Cleans</th><th>Exports</th><th>Joined</th><th>Last active</th><th></th></tr></thead><tbody id="rows"></tbody></table><div class="empty" id="noRows" hidden>No users match.</div></div>
+      <p class="mono" id="userCount" style="color:var(--ash);font-size:11.5px;margin:12px 4px 0"></p>
+    </section>
+
+    <section id="tab-settings" hidden>
+      <div class="panel"><div class="panel-head"><h2>App settings</h2><span class="note">changes reach every phone the next time the app opens</span></div>
+        <form class="form" id="settingsForm">
+          <div><label for="sFree">Free cleaning seconds</label><input class="field mono" id="sFree" type="number" min="0" max="3600" step="1" inputmode="numeric"><div class="hint">How many seconds a free user can clean before the Pro screen appears. Default 30.</div></div>
+          <div class="switch-row"><div><label style="margin:0">Show ads to free users</label><div class="hint" style="margin:2px 0 0">Turn off to pause all ads without publishing an update.</div></div><button class="switch" id="sAds" type="button" role="switch" aria-checked="true" aria-label="Show ads to free users"></button></div>
+          <div><label for="sGap">Minutes between full-screen ads</label><input class="field mono" id="sGap" type="number" min="1" max="120" step="1" inputmode="numeric"><div class="hint">Lower earns more but annoys people. 3 is a safe start.</div></div>
+          <div><label for="sMsg">Announcement</label><textarea class="field" id="sMsg" rows="2" maxlength="160" placeholder="Shown at the top of the Record screen. Leave empty for none."></textarea></div>
+          <div class="switch-row"><div><label style="margin:0">Maintenance mode</label><div class="hint" style="margin:2px 0 0">Shows a "back in a few minutes" screen to everyone. Use only in an emergency.</div></div><button class="switch" id="sMaint" type="button" role="switch" aria-checked="false" aria-label="Maintenance mode"></button></div>
+          <div><button class="btn btn-primary" id="saveBtn" type="submit">Save settings</button></div>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="confirm"><h2 id="cfTitle"></h2><p id="cfText"></p><div class="actions"><button class="btn btn-ghost btn-sm" id="cfNo" type="button">Cancel</button><button class="btn btn-primary btn-sm" id="cfYes" type="button">Confirm</button></div></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!--ARTIFACT-END-->
+<script src="config.js"></script>
+<script src="firebase.bundle.js"></script>
+<!--ARTIFACT-START-->
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+  const PRICE = 2, STORE_CUT = 0.15;
+  const cfg = window.CLEAR_FIREBASE || {}, FB = window.ClearFB;
+  const live = !!(FB && cfg.apiKey && cfg.projectId);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmtN = n => Math.round(n).toLocaleString('en-US');
+  const dayKey = d => d.toISOString().slice(0, 10);
+  const lastDays = n => Array.from({ length: n }, (_, i) => dayKey(new Date(Date.now() - (n - 1 - i) * 864e5)));
+  const toDate = v => !v ? null : v.toDate ? v.toDate() : v.seconds ? new Date(v.seconds * 1000) : new Date(v);
+  const ago = d => { if (!d) return 'never'; const s = (Date.now() - d) / 1000; if (s < 3600) return Math.max(1, Math.round(s / 60)) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; if (s < 86400 * 60) return Math.round(s / 86400) + ' d ago'; return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
+  const shortDate = d => d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+  let toastT; const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); };
+  function ask(title, text, yes = 'Confirm') {
+    return new Promise(res => { const d = $('#confirm'); $('#cfTitle').textContent = title; $('#cfText').textContent = text; $('#cfYes').textContent = yes;
+      const done = v => { d.close(); $('#cfYes').onclick = $('#cfNo').onclick = null; res(v); };
+      $('#cfYes').onclick = () => done(true); $('#cfNo').onclick = () => done(false); d.oncancel = () => done(false); d.showModal(); });
+  }
+
+  let users = [], settings = { freeSeconds: 30, adsEnabled: true, interstitialMinutes: 3, announcement: '', maintenance: false };
+  let auth = null, db = null;
+
+  /* ---------- sample data (only when Firebase is not connected) ---------- */
+  function sampleUsers() {
+    let seed = 42; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const first = ['Ayesha', 'Bilal', 'Carlos', 'Dina', 'Emeka', 'Fatima', 'Gustav', 'Hana', 'Ivan', 'Jia', 'Kofi', 'Lena', 'Mateo', 'Noor', 'Omar', 'Priya', 'Quinn', 'Rosa', 'Sami', 'Tariq', 'Uma', 'Viktor', 'Wen', 'Yara', 'Zoe'];
+    const last = ['Khan', 'Silva', 'Okafor', 'Nguyen', 'Petrov', 'Haddad', 'Lindqvist', 'Tanaka', 'Mensah', 'Garcia', 'Sheikh', 'Rossi'];
+    const days = lastDays(30), out = [];
+    for (let i = 0; i < 214; i++) {
+      const joined = Math.floor(Math.pow(rnd(), 1.6) * 75), name = `${first[Math.floor(rnd() * first.length)]} ${last[Math.floor(rnd() * last.length)]}`;
+      const engaged = rnd(), pro = engaged > 0.9, d = {};
+      for (let k = 0; k < days.length; k++) { const age = 29 - k; if (age > joined) continue; if (rnd() < 0.08 + engaged * 0.35) { const c = Math.floor(rnd() * (pro ? 5 : 2)); d[days[k]] = { opens: 1 + Math.floor(rnd() * 3), records: Math.floor(rnd() * 3), cleans: c, cleanSeconds: c * (20 + Math.floor(rnd() * 90)), exports: Math.floor(rnd() * (c + 1)) }; } }
+      const tot = k => Object.values(d).reduce((a, x) => a + (x[k] || 0), 0);
+      const lastKey = Object.keys(d).sort().pop();
+      out.push({ id: 'demo' + i, name, email: name.toLowerCase().replace(' ', '.') + '@example.com', plan: pro ? 'pro' : 'free', giftPro: !pro && rnd() > 0.985, status: rnd() > 0.99 ? 'banned' : 'active',
+        freeUsed: pro ? 30 : Math.min(30, Math.floor(rnd() * rnd() * 46)), stats: { cleans: tot('cleans') + (pro ? 12 : 0), cleanSeconds: tot('cleanSeconds'), exports: tot('exports'), records: tot('records') },
+        recordings: 1 + Math.floor(rnd() * 24), appVersion: rnd() > 0.25 ? '1.0' : '0.9', platform: 'android', days: d,
+        createdAt: new Date(Date.now() - joined * 864e5 - rnd() * 864e5), lastActive: lastKey ? new Date(lastKey + 'T' + String(8 + Math.floor(rnd() * 12)).padStart(2, '0') + ':00:00') : new Date(Date.now() - joined * 864e5) });
+    }
+    return out;
+  }
+
+  /* ---------- data ---------- */
+  async function load() {
+    $('#errBanner').hidden = true;
+    if (!live) { users = sampleUsers(); render(); return; }
+    try {
+      const { collection, getDocs, query, limit, doc, getDoc } = FB;
+      const snap = await getDocs(query(collection(db, 'users'), limit(5000)));
+      users = snap.docs.map(d => ({ id: d.id, ...d.data() })).map(u => ({ ...u, createdAt: toDate(u.createdAt), lastActive: toDate(u.lastActive) }));
+      const c = await getDoc(doc(db, 'config', 'app')); if (c.exists()) settings = { ...settings, ...c.data() };
+      render();
+    } catch (e) { console.error(e); const b = $('#errBanner'); b.hidden = false; b.textContent = 'Couldn\'t load data. Check your internet connection, and that the Firestore rules from firebase/firestore.rules are published.'; }
+  }
+  const isPro = u => u.plan === 'pro' || u.giftPro === true;
+  const stat = (u, k) => (u.stats && u.stats[k]) || 0;
+
+  /* ---------- charts ---------- */
+  function bars(svg, series, labels, colors) {
+    const W = 560, H = 170, padL = 30, padB = 20, padT = 8, n = labels.length;
+    const totals = labels.map((_, i) => series.reduce((a, s) => a + s[i], 0)), rawMax = Math.max(1, ...totals);
+    const step = Math.pow(10, Math.floor(Math.log10(rawMax))), max = Math.ceil(rawMax / (step / 2)) * (step / 2) || 1;
+    const x0 = padL, w = (W - padL - 4) / n, bw = Math.max(2, w * 0.68), ph = H - padB - padT;
+    let out = '';
+    for (const t of [0, 0.5, 1]) { const y = padT + ph * (1 - t); out += `<line class="grid" x1="${x0}" x2="${W}" y1="${y}" y2="${y}"/><text x="${x0 - 6}" y="${y + 3}" text-anchor="end">${fmtN(max * t)}</text>`; }
+    for (let i = 0; i < n; i++) {
+      let y = padT + ph; const x = x0 + i * w + (w - bw) / 2;
+      series.forEach((s, k) => { const h = s[i] / max * ph; if (h <= 0) return; y -= h; out += `<rect class="bar" style="animation-delay:${i * 12}ms" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(3, bw / 2)}" fill="${colors[k]}"><title>${labels[i]}: ${fmtN(s[i])}</title></rect>`; });
+      if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) out += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 5}" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${labels[i].slice(8)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+labels[i].slice(5, 7) - 1]}</text>`;
+    }
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'none'); svg.innerHTML = out;
+  }
+  const meter = (label, n, total, extra = '') => `<div class="meter-row"><span>${esc(label)}</span><span class="n">${fmtN(n)}${total ? ` · ${Math.round(n / total * 100)}%` : ''}${extra}</span><div class="track"><span style="width:${total ? Math.max(2, n / total * 100) : 0}%"></span></div></div>`;
+
+  /* ---------- render ---------- */
+  function render() { renderOverview(); renderUsers(); renderSettings(); }
+  function renderOverview() {
+    const days = lastDays(30), now = Date.now(), total = users.length;
+    const pro = users.filter(u => u.plan === 'pro').length, gift = users.filter(u => u.giftPro === true && u.plan !== 'pro').length;
+    const active7 = users.filter(u => u.lastActive && now - u.lastActive < 7 * 864e5).length;
+    const new7 = users.filter(u => u.createdAt && now - u.createdAt < 7 * 864e5).length;
+    const sum = k => users.reduce((a, u) => a + stat(u, k), 0);
+    const mrr = pro * PRICE * (1 - STORE_CUT), free = Math.max(0, total - pro - gift);
+    const limit = settings.freeSeconds || 30, wall = users.filter(u => !isPro(u) && (u.freeUsed || 0) >= limit).length, tried = users.filter(u => (u.freeUsed || 0) > 0 || stat(u, 'cleans') > 0).length;
+    $('#heroDate').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    $('#heroLine').textContent = total ? `${fmtN(total)} signed-in users, ${fmtN(pro)} paying. ${fmtN(new7)} joined in the last 7 days.` : 'No signed-in users yet. Numbers appear here as soon as people sign in.';
+    const k = [
+      ['Estimated monthly revenue', '$' + mrr.toFixed(2), `${fmtN(pro)} Pro × $${PRICE}, after the store's 15%`, 'lead'],
+      ['Signed-in users', fmtN(total), `<b>+${fmtN(new7)}</b> this week`],
+      ['Active in last 7 days', fmtN(active7), total ? `${Math.round(active7 / total * 100)}% of users` : ''],
+      ['Pro subscribers', fmtN(pro), total ? `${(pro / total * 100).toFixed(1)}% conversion` : ''],
+      ['Cleans', fmtN(sum('cleans')), 'all time'],
+      ['Minutes cleaned', fmtN(sum('cleanSeconds') / 60), 'all time'],
+      ['Exports', fmtN(sum('exports')), 'all time'],
+      ['Recordings made', fmtN(sum('records')), 'all time'],
+    ];
+    $('#kpis').innerHTML = k.map((x, i) => `<div class="kpi ${x[3] || ''}" style="--i:${i}"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');
+    const sign = days.map(d => users.filter(u => u.createdAt && dayKey(u.createdAt) === d).length);
+    const dau = days.map(d => users.filter(u => u.days && u.days[d]).length);
+    const act = k2 => days.map(d => users.reduce((a, u) => a + ((u.days && u.days[d] && u.days[d][k2]) || 0), 0));
+    bars($('#chSign'), [sign], days, ['#d6ff3f']); bars($('#chDau'), [dau], days, ['#1ed68a']); bars($('#chAct'), [act('cleans'), act('records'), act('exports')], days, ['#d6ff3f', '#1ed68a', '#eeeae2']);
+    $('#nSign').textContent = `${fmtN(sign.reduce((a, b) => a + b, 0))} in 30 days`; $('#nDau').textContent = `today ${fmtN(dau[dau.length - 1])} · peak ${fmtN(Math.max(...dau))}`;
+    $('#funnel').innerHTML = meter('Signed in', total, total) + meter('Cleaned at least once', tried, total) + meter(`Used all ${limit} free seconds`, wall + pro, total) + meter('Subscribed to Pro', pro, total);
+    $('#plans').innerHTML = `<div class="split"><span style="width:${total ? pro / total * 100 : 0}%;background:#d6ff3f"></span><span style="width:${total ? gift / total * 100 : 0}%;background:#1ed68a"></span></div>
+      <div class="legend" style="flex-direction:column;gap:8px"><span><i style="background:#d6ff3f"></i>Pro, paying · ${fmtN(pro)}</span><span><i style="background:#1ed68a"></i>Pro, gifted by you · ${fmtN(gift)}</span><span><i style="background:#2a2f33"></i>Free · ${fmtN(free)}</span></div>`;
+    const ver = {}; users.forEach(u => { const v = `${u.platform || 'android'} ${u.appVersion || '?'}`; ver[v] = (ver[v] || 0) + 1; });
+    $('#versions').innerHTML = Object.entries(ver).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([v, n]) => meter(v, n, total)).join('') || '<div class="empty">No data yet</div>';
+    const top = users.slice().sort((a, b) => stat(b, 'cleans') - stat(a, 'cleans')).slice(0, 5), tmax = Math.max(1, ...top.map(u => stat(u, 'cleans')));
+    $('#topUsers').innerHTML = top.filter(u => stat(u, 'cleans') > 0).map(u => `<div class="meter-row"><span>${esc(u.name || u.email || 'User')}</span><span class="n">${fmtN(stat(u, 'cleans'))}</span><div class="track"><span style="width:${stat(u, 'cleans') / tmax * 100}%"></span></div></div>`).join('') || '<div class="empty">No cleans yet</div>';
+  }
+  function filteredUsers() {
+    const q = $('#q').value.trim().toLowerCase(), f = $('#fPlan').value, s = $('#fSort').value, limit = settings.freeSeconds || 30;
+    let list = users.filter(u => !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+    list = list.filter(u => f === 'all' ? true : f === 'pro' ? u.plan === 'pro' : f === 'free' ? !isPro(u) : f === 'gift' ? u.giftPro === true : f === 'banned' ? u.status === 'banned' : (!isPro(u) && (u.freeUsed || 0) >= limit));
+    const t = d => d ? +d : 0;
+    return list.sort(s === 'new' ? (a, b) => t(b.createdAt) - t(a.createdAt) : s === 'cleans' ? (a, b) => stat(b, 'cleans') - stat(a, 'cleans') : (a, b) => t(b.lastActive) - t(a.lastActive));
+  }
+  function renderUsers() {
+    const list = filteredUsers(), limit = settings.freeSeconds || 30, shown = list.slice(0, 300);
+    $('#rows').innerHTML = shown.map(u => `<tr data-id="${esc(u.id)}">
+      <td><div class="name">${esc(u.name || 'No name')}</div><div class="email">${esc(u.email || '')}</div></td>
+      <td>${u.status === 'banned' ? '<span class="chip ban">Suspended</span>' : u.plan === 'pro' ? '<span class="chip pro">Pro</span>' : u.giftPro === true ? '<span class="chip gift">Pro · gift</span>' : '<span class="chip">Free</span>'}</td>
+      <td class="num">${Math.min(u.freeUsed || 0, limit)} / ${limit}s</td><td class="num">${fmtN(stat(u, 'cleans'))}</td><td class="num">${fmtN(stat(u, 'exports'))}</td>
+      <td class="num">${shortDate(u.createdAt)}</td><td class="num">${ago(u.lastActive)}</td>
+      <td><div class="actions"><button class="btn btn-ghost btn-sm" data-act="gift" type="button">${u.giftPro === true ? 'Remove gift' : 'Gift Pro'}</button><button class="btn btn-ghost btn-sm" data-act="ban" type="button">${u.status === 'banned' ? 'Restore' : 'Suspend'}</button><button class="btn btn-ghost btn-sm btn-danger" data-act="del" type="button">Delete</button></div></td></tr>`).join('');
+    $('#noRows').hidden = shown.length > 0;
+    $('#userCount').textContent = `${fmtN(list.length)} of ${fmtN(users.length)} users${list.length > shown.length ? ` · showing the first ${shown.length}, search to narrow` : ''}`;
+  }
+  function renderSettings() {
+    $('#sFree').value = settings.freeSeconds; $('#sGap').value = settings.interstitialMinutes; $('#sMsg').value = settings.announcement || '';
+    $('#sAds').setAttribute('aria-checked', String(settings.adsEnabled !== false)); $('#sMaint').setAttribute('aria-checked', String(!!settings.maintenance));
+  }
+
+  /* ---------- actions ---------- */
+  async function patchUser(u, data) { if (live) await FB.updateDoc(FB.doc(db, 'users', u.id), data); Object.assign(u, data); render(); }
+  $('#rows').addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const u = users.find(x => x.id === b.closest('tr').dataset.id); if (!u) return; const who = u.name || u.email || 'this user';
+    try {
+      if (b.dataset.act === 'gift') { const on = u.giftPro !== true; if (await ask(on ? `Gift Pro to ${who}?` : `Remove gifted Pro from ${who}?`, on ? 'They get every Pro feature for free until you remove it. This does not charge anyone.' : 'They go back to the free plan the next time they open the app.', on ? 'Gift Pro' : 'Remove')) { await patchUser(u, { giftPro: on }); toast(on ? 'Pro gifted' : 'Gift removed'); } }
+      if (b.dataset.act === 'ban') { const on = u.status !== 'banned'; if (await ask(on ? `Suspend ${who}?` : `Restore ${who}?`, on ? 'They are signed out and cannot sign in. Recordings on their phone are not affected, and a paid subscription keeps billing until they cancel it.' : 'They can sign in again.', on ? 'Suspend' : 'Restore')) { await patchUser(u, { status: on ? 'banned' : 'active' }); toast(on ? 'User suspended' : 'User restored'); } }
+      if (b.dataset.act === 'del') { if (await ask(`Delete ${who}'s profile?`, 'Removes their profile and usage history from the database. Use this when someone asks you to delete their data. It cannot be undone.', 'Delete')) { if (live) await FB.deleteDoc(FB.doc(db, 'users', u.id)); users = users.filter(x => x !== u); render(); toast('Profile deleted'); } }
+    } catch (err) { console.error(err); toast('That didn\'t save. Check your connection.'); }
+  });
+  ['q', 'fPlan', 'fSort'].forEach(id => $('#' + id).addEventListener('input', renderUsers));
+  $$('.switch').forEach(s => s.onclick = () => s.setAttribute('aria-checked', String(s.getAttribute('aria-checked') !== 'true')));
+  $('#settingsForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const next = { freeSeconds: Math.max(0, Math.min(3600, Math.round(+$('#sFree').value || 0))), interstitialMinutes: Math.max(1, Math.min(120, Math.round(+$('#sGap').value || 3))), announcement: $('#sMsg').value.trim().slice(0, 160), adsEnabled: $('#sAds').getAttribute('aria-checked') === 'true', maintenance: $('#sMaint').getAttribute('aria-checked') === 'true' };
+    if (next.maintenance && !settings.maintenance && !(await ask('Turn on maintenance mode?', 'Nobody will be able to use the app until you turn this off.', 'Turn on'))) return;
+    const btn = $('#saveBtn'); btn.disabled = true;
+    try { if (live) await FB.setDoc(FB.doc(db, 'config', 'app'), next); settings = next; render(); toast(live ? 'Settings saved' : 'Saved (sample mode: nothing was sent)'); }
+    catch (err) { console.error(err); toast('Settings didn\'t save. Check your connection.'); }
+    btn.disabled = false;
+  });
+  $('#csvBtn').onclick = async () => {
+    const head = ['name', 'email', 'plan', 'gifted', 'status', 'free_used', 'cleans', 'exports', 'joined', 'last_active'];
+    const cell = v => { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+    const csv = [head.join(',')].concat(filteredUsers().map(u => [u.name, u.email, u.plan || 'free', u.giftPro === true, u.status || 'active', u.freeUsed || 0, stat(u, 'cleans'), stat(u, 'exports'), u.createdAt ? u.createdAt.toISOString() : '', u.lastActive ? u.lastActive.toISOString() : ''].map(cell).join(','))).join('\n');
+    try {
+      const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+      if (dl) { await dl.save({ filename: 'clear-users.csv', data: new Blob([csv], { type: 'text/csv' }) }); return; }
+      if (window.claude) { toast('Downloads are not available in this preview'); return; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `clear-users-${dayKey(new Date())}.csv`; document.body.appendChild(a); a.click(); a.remove();
+    } catch (e) { if (!e || e.code !== 'declined') toast('Export didn\'t work'); }
+  };
+  $$('nav.tabs button').forEach(b => b.onclick = () => { $$('nav.tabs button').forEach(x => x.setAttribute('aria-selected', String(x === b))); ['overview', 'users', 'settings'].forEach(t => $('#tab-' + t).hidden = t !== b.dataset.tab); });
+  $('#refreshBtn').onclick = async () => { await load(); toast('Updated'); };
+
+  /* ---------- sign-in gate ---------- */
+  function showApp(name) { $('#gate').hidden = true; $('#app').hidden = false; $('#whoAvatar').textContent = (name || 'A').charAt(0).toUpperCase(); $('#whoAvatar').title = name || ''; load(); }
+  function showGate(mode, user) {
+    $('#app').hidden = true; $('#gate').hidden = false; $('#gateUid').hidden = $('#gateOut').hidden = mode !== 'denied'; $('#gateBtn').hidden = mode === 'denied';
+    if (mode === 'denied') { $('#gateTitle').textContent = 'This account is not an admin'; $('#gateText').textContent = 'If this is your panel, add the ID below as a document in the "admins" collection in Firebase, then reload.'; $('#gateUid').textContent = user.uid; }
+    else { $('#gateTitle').textContent = 'Admin sign-in'; $('#gateText').textContent = 'Only the owner\'s Google account can open this panel.'; }
+  }
+  if (!live) { $('#demoBanner').hidden = false; $('#outBtn').hidden = true; showApp('Admin'); return; }
+  const app = FB.initializeApp(cfg); auth = FB.getAuth(app); db = FB.getFirestore(app);
+  $('#gateBtn').onclick = async () => { try { await FB.signInWithPopup(auth, new FB.GoogleAuthProvider()); } catch (e) { if (!/popup-closed|cancelled/.test(String(e && e.code))) toast('Sign-in didn\'t work. Allow pop-ups and try again.'); } };
+  $('#outBtn').onclick = $('#gateOut').onclick = () => FB.signOut(auth);
+  FB.onAuthStateChanged(auth, async user => {
+    if (!user) return showGate('signin');
+    try { const a = await FB.getDoc(FB.doc(db, 'admins', user.uid)); if (a.exists()) showApp(user.displayName || user.email); else showGate('denied', user); }
+    catch (e) { showGate('denied', user); }
+  });
+})();
+</script>
+<!--ARTIFACT-END-->
+</body>
+</html>

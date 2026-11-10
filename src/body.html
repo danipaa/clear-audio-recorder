@@ -10,6 +10,7 @@
     <main class="views">
       <!-- RECORD -->
       <section class="view" id="view-record" data-view="record">
+        <div class="announce" id="announce" hidden></div>
         <div class="rec-hero" id="recStage">
           <canvas class="dither" id="recDither" aria-hidden="true"></canvas>
           <div class="glow-emerald"></div><div class="glow-spark"></div>
@@ -25,6 +26,7 @@
             <button class="rec-btn" id="recBtn" type="button" aria-label="Start recording"><span class="rec-core"></span><span class="ring"></span><span class="ring r2"></span></button>
             <button class="round-btn" id="recPause" type="button" aria-label="Pause" disabled><i data-ic="pause"></i></button>
           </div>
+          <p class="rec-hint hw" id="hwHint" hidden></p>
           <p class="rec-hint" id="recHint">Tap to record. Saved only on this phone.</p>
           </div>
         </div>
@@ -43,7 +45,7 @@
         <div class="lib-head"><h1>Library</h1>
           <div class="folder-tools">
             <button class="pill-btn" id="libImport" type="button"><i data-ic="upload"></i>Import</button>
-            <button class="pill-btn" id="newFolderBtn" type="button"><i data-ic="folderPlus"></i>Folder</button>
+            <button class="pill-btn" id="libSend" type="button"><i data-ic="send"></i>Send to PC</button>
           </div>
         </div>
         <label class="search" for="search"><i data-ic="search"></i><input id="search" type="search" placeholder="Search by name or folder" autocomplete="off"></label>
@@ -63,6 +65,15 @@
       <section class="view" id="view-settings" data-view="settings" hidden>
         <h1 style="margin:8px 2px 0">You</h1>
         <div class="pro-card" id="proCard"></div>
+
+        <div class="group-title" id="accountTitle">Account</div>
+        <div class="group" id="accountGroup"><div id="accountCard"></div></div>
+
+        <div class="group-title">Recording</div>
+        <div class="group">
+          <div class="row"><div class="row-label"><b>Record with a volume button</b><span>Press it on the Record screen to start, pause and resume without touching the screen. Phones don't let apps use the power button.</span></div></div>
+          <div style="padding:0 16px 14px"><div class="seg compact" id="setHw"><button type="button" data-v="off">Off</button><button type="button" data-v="up">Vol up</button><button type="button" data-v="down">Vol down</button><button type="button" data-v="both">Either</button></div></div>
+        </div>
 
         <div class="group-title">Defaults</div>
         <div class="group">
@@ -143,12 +154,14 @@
         <div class="seg" id="fmtSeg"><button type="button" data-v="mp3">MP3</button><button type="button" data-v="wav">WAV</button></div>
         <div class="seg compact" id="kbpsSeg"><button type="button" data-v="128">128 kbps</button><button type="button" data-v="192">192 kbps</button><button type="button" data-v="320">320 kbps</button></div>
         <button class="cta ghost" id="exportBtn" type="button"><i data-ic="share"></i><span id="exportLabel" class="label-text">Export MP3</span></button>
+        <button class="btn-2" id="edSend" type="button"><i data-ic="send"></i>Send to PC over Wi-Fi</button>
         <p class="fine" id="exportFine"></p>
       </div>
     </div>
   </div>
 </section>
 
+<div class="maintenance" id="maintenance" hidden><div><div class="brand"><span class="wordmark">CLEAR</span></div><h2>Back in a few minutes</h2><p>We're updating Clear Audio Recorder. Your recordings are safe on your phone.</p></div></div>
 <div class="scrim" id="scrim"></div>
 <div class="sheet-wrap"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
