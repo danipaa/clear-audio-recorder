@@ -6,6 +6,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -79,3 +82,17 @@ jobs:
           name: clear-audio-recorder-play-store-aab
           path: android/app/build/outputs/bundle/release/*.aab
           retention-days: 30
+
+      # Puts the newest APK on the repo's Releases page so it can be downloaded straight to a phone.
+      - name: Publish APK to the Releases page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk clear-audio-recorder-test.apk
+          FILES="clear-audio-recorder-test.apk"
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk clear-audio-recorder-signed.apk
+            FILES="$FILES clear-audio-recorder-signed.apk"
+          fi
+          gh release view latest-build >/dev/null 2>&1 || gh release create latest-build --title "Latest build" --notes "Newest app build. Replaced on every build." --prerelease
+          gh release upload latest-build $FILES --clobber
