@@ -7,7 +7,7 @@
     "build:preview": "node scripts/build.mjs preview",
     "test": "node tests/engine.test.cjs",
     "sync": "node scripts/build.mjs www && npx cap sync android",
-    "icons": "npx capacitor-assets generate --android --iconBackgroundColor \"#060709\" --iconBackgroundColorDark \"#060709\" --splashBackgroundColor \"#060709\" --splashBackgroundColorDark \"#060709\""
+    "icons": "npx capacitor-assets generate --android --iconBackgroundColor \"#08090a\" --iconBackgroundColorDark \"#08090a\" --splashBackgroundColor \"#08090a\" --splashBackgroundColorDark \"#08090a\""
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -24,6 +24,8 @@
   "devDependencies": {
     "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.6.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "@fontsource-variable/unbounded": "^5.3.0",

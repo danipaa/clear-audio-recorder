@@ -52,7 +52,84 @@
     fx_wobble: '<path d="M2.5 12c1.6-5 3.2-5 4.8 0s3.2 5 4.7 0 3.2-5 4.8 0 3.1 5 4.7 0"/>',
   };
   const ic = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${cls ? ` class="${cls}"` : ''}>${ICONS[n] || ''}</svg>`;
-  let logoN = 0; const LOGO = () => { const id = 'lg' + (++logoN); return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ef0a6"/><stop offset="1" stop-color="#3aa6ff"/></linearGradient></defs><rect x="3" y="3" width="58" height="58" rx="18" fill="#0d0f12" stroke="url(#${id})" stroke-width="2"/><path class="wave-line" d="M12 32h6l4-11 6 22 5-28 5 24 4-12 3 5h7" fill="none" stroke="url(#${id})" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`; };
+
+  const STAR = (cls = '', style = '') => `<span class="sparkle${cls ? ' ' + cls : ''}"${style ? ` style="${style}"` : ''}><svg viewBox="0 0 24 24"><path d="M12 0c.9 6.4 4.9 10.6 12 12-7.1 1.4-11.1 5.6-12 12-.9-6.4-4.9-10.6-12-12C7.1 10.6 11.1 6.4 12 0z" fill="currentColor"/></svg></span>`;
+
+  /* ---------- KYRO pixel-dither field (WebGL) ----------
+     Same shader as the KYRO site: drifting fbm clouds drawn as Bayer-ordered pixel glyphs,
+     lit up in lime around a focus point. Here the focus sits on the record button and the
+     glow swells with your voice level while recording. */
+  const DITHER_VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }';
+  const DITHER_FS = `
+precision mediump float;
+uniform vec2 res; uniform float t; uniform vec2 mouse; uniform float cell; uniform float boost;
+uniform vec3 c0; uniform vec3 c1; uniform vec3 spark;
+float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
+float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<5;i++){ v+=a*n(p); p*=2.03; a*=.5; } return v; }
+float bayer(vec2 c){ vec2 m = mod(c, 4.);
+  int i = int(m.x) + int(m.y)*4; float v=0.;
+  if(i==0)v=0.;else if(i==1)v=8.;else if(i==2)v=2.;else if(i==3)v=10.;else if(i==4)v=12.;else if(i==5)v=4.;else if(i==6)v=14.;else if(i==7)v=6.;
+  else if(i==8)v=3.;else if(i==9)v=11.;else if(i==10)v=1.;else if(i==11)v=9.;else if(i==12)v=15.;else if(i==13)v=7.;else if(i==14)v=13.;else v=5.;
+  return v/16. - .47; }
+float glyph(int lv, vec2 q){
+  vec2 d = abs(q - .5);
+  if(lv<=0) return 0.;
+  if(lv==1) return step(max(d.x,d.y), .12);
+  if(lv==2) return step(min(d.x,d.y), .09) * step(max(d.x,d.y), .34);
+  if(lv==3) return step(abs(d.x-d.y), .1) * step(max(d.x,d.y), .36);
+  if(lv==4) return step(abs(d.x-d.y), .17);
+  return 1.;
+}
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  vec2 cellId = floor(frag / cell);
+  vec2 q = fract(frag / cell);
+  vec2 uv = (cellId * cell) / res.y;
+  vec2 m = mouse * vec2(res.x/res.y, 1.);
+  float d = distance(uv, m);
+  vec2 drift = vec2(t*.018, -t*.008);
+  float f = fbm(uv*1.6 + drift + fbm(uv*1.2 - drift)*0.9);
+  f = (f - .5) * 2.1 + .5;
+  f += smoothstep(.45, 0., d) * (.35 + boost*.55);
+  f *= smoothstep(1.25, .25, uv.y);
+  int lv = int(clamp(floor(f*5. + .5 + bayer(cellId)*1.15), 0., 5.));
+  float on = glyph(lv, q);
+  float glow = clamp(smoothstep(.35 + boost*.25, 0., d) * (1. + boost), 0., 1.);
+  vec3 col = mix(c1, spark, glow*.6);
+  gl_FragColor = vec4(mix(c0, col, on), 1.);
+}`;
+  function createDither(canvas, { cell = 6, bg = [0.031, 0.035, 0.039], focus = null, boost = () => 0, active = () => true } = {}) {
+    let gl = null;
+    try { gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'low-power' }); } catch (e) { }
+    if (!gl) return null;
+    const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+    const prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, DITHER_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, DITHER_FS)); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+    gl.useProgram(prog);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const U = k => gl.getUniformLocation(prog, k);
+    gl.uniform3fv(U('c0'), bg); gl.uniform3fv(U('c1'), [0.933, 0.918, 0.886]); gl.uniform3fv(U('spark'), [0.84, 1, 0.25]);
+    const scale = 0.5;
+    const size = () => { const r = canvas.getBoundingClientRect(); const w = Math.max(1, Math.floor(r.width * scale)), h = Math.max(1, Math.floor(r.height * scale)); if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } gl.viewport(0, 0, w, h); gl.uniform2f(U('res'), w, h); gl.uniform1f(U('cell'), cell * scale * ((window.devicePixelRatio || 1) > 1 ? 1.4 : 1)); };
+    size(); let ro = null; try { ro = new ResizeObserver(size); ro.observe(canvas); } catch (e) { }
+    const M = { x: 0.5, y: 0.45, tx: 0.5, ty: 0.45 }, start = performance.now(); let raf = 0, last = 0, pointerUntil = 0, b = 0;
+    const host = canvas.parentElement;
+    const onMove = e => { const r = canvas.getBoundingClientRect(); if (e.clientY < r.top || e.clientY > r.bottom) return; M.tx = (e.clientX - r.left) / r.width; M.ty = 1 - (e.clientY - r.top) / r.height; pointerUntil = performance.now() + 2500; };
+    host && host.addEventListener('pointermove', onMove, { passive: true });
+    const frame = now => {
+      const t = (now - start) / 1000;
+      if (now > pointerUntil && focus) { const f = focus(); if (f) { M.tx = f.x + Math.sin(t * 0.35) * 0.05; M.ty = f.y + Math.cos(t * 0.28) * 0.04; } }
+      M.x += (M.tx - M.x) * 0.08; M.y += (M.ty - M.y) * 0.08; b += (boost() - b) * 0.25;
+      gl.uniform1f(U('t'), reduceMotion ? 8 : t); gl.uniform2f(U('mouse'), M.x, M.y); gl.uniform1f(U('boost'), b);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+    const loop = now => { raf = requestAnimationFrame(loop); if (now - last < 33 || document.hidden || !active()) return; last = now; frame(now); };
+    if (reduceMotion) { frame(performance.now()); } else raf = requestAnimationFrame(loop);
+    return { stop() { cancelAnimationFrame(raf); ro && ro.disconnect(); host && host.removeEventListener('pointermove', onMove); }, redraw() { size(); frame(performance.now()); } };
+  }
 
   /* ---------- Small helpers ---------- */
   const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
@@ -248,23 +325,24 @@
   /* ---------- Paywall ---------- */
   async function paywall(reason) {
     const b = P.billing;
-    const v = await openSheet(`<div class="paywall"><div class="glow halftone"></div>
-      <span class="pw-badge">CLEAR PRO</span>
+    const v = await openSheet(`<div class="paywall"><div class="glow-spark"></div><div class="glow-emerald"></div>
+      ${STAR()}
+      <div><span class="pw-badge">Clear Pro</span></div>
       <div class="pw-price">${esc(b.price || '$2.00')}<small> / month</small></div>
       ${reason ? `<p class="sub" style="margin:12px 0 0">${esc(reason)}</p>` : ''}
       <ul class="pw-list">
-        <li>${ic('sparkle')}Unlimited one-tap noise removal</li>
+        <li>${ic('star4')}Unlimited one-tap noise removal</li>
         <li>${ic('fx_robot')}All 12 voice effects and pitch control</li>
         <li>${ic('shield')}No ads, ever</li>
         <li>${ic('folder')}Unlimited folders and recordings</li>
       </ul>
-      <div class="sheet-actions"><button class="cta" id="pwBuy">Start Pro · ${esc(b.price || '$2.00')}/month</button>
+      <div class="sheet-actions"><button class="cta" id="pwBuy">${ic('star4', 'star')}Start Pro · ${esc(b.price || '$2.00')}/month</button>
       <button class="btn-text" id="pwRestore">Restore purchase</button></div>
       <p class="pw-note">${b.demo ? 'Preview mode: no payment is taken here. In the app this opens Google Play billing.' : 'Billed monthly through Google Play. Cancel anytime in Play Store → Subscriptions.'}</p></div>`,
       sh => {
         $('#pwBuy', sh).onclick = async e => {
           const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Opening Google Play…';
-          const r = await b.purchase(); btn.disabled = false; btn.textContent = `Start Pro · ${b.price || '$2.00'}/month`;
+          const r = await b.purchase(); btn.disabled = false; btn.innerHTML = `${ic('star4', 'star')}Start Pro · ${esc(b.price || '$2.00')}/month`;
           if (r.ok) closeSheet('pro'); else if (!r.quiet) toast(r.message || 'Purchase didn\'t go through', 'x');
         };
         $('#pwRestore', sh).onclick = async () => { const r = await b.restore(); if (r.pro) closeSheet('pro'); else toast('No active subscription found', 'x'); };
@@ -274,16 +352,16 @@
   }
   async function becomePro() {
     state.pro = true; await P.ads.hideBanner(); renderPlan(); renderSettings(); if (state.editor) renderEditorPanels();
-    burst(window.innerWidth / 2, window.innerHeight * 0.4); toast('Welcome to Clear Pro', 'gem');
+    burst(window.innerWidth / 2, window.innerHeight * 0.4); toast('Welcome to Clear Pro', 'star4');
   }
 
   /* ---------- Plan chip ---------- */
   function renderPlan() {
     const c = $('#planChip');
-    if (state.pro) { c.className = 'plan-chip pro'; c.innerHTML = `${ic('gem', 'plan-meter')}<b>PRO</b>`; c.setAttribute('aria-label', 'Clear Pro is active'); return; }
+    if (state.pro) { c.className = 'plan-chip pro'; c.innerHTML = `${ic('star4', 'plan-meter')}<span>PRO</span>`; c.setAttribute('aria-label', 'Clear Pro is active'); return; }
     const left = Math.max(0, FREE_LIMIT - state.meta.freeUsed), frac = left / FREE_LIMIT, R = 9, C = 2 * Math.PI * R;
     c.className = 'plan-chip';
-    c.innerHTML = `<svg class="plan-meter" viewBox="0 0 22 22"><circle cx="11" cy="11" r="${R}" fill="none" stroke="#242a33" stroke-width="3"/><circle cx="11" cy="11" r="${R}" fill="none" stroke="url(#pg)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}" transform="rotate(-90 11 11)" style="transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1)"/><defs><linearGradient id="pg"><stop offset="0" stop-color="#3ef0a6"/><stop offset="1" stop-color="#3aa6ff"/></linearGradient></defs></svg><span>${left > 0 ? `${left}s free` : 'Go Pro'}</span>`;
+    c.innerHTML = `<svg class="plan-meter" viewBox="0 0 22 22"><circle cx="11" cy="11" r="${R}" fill="none" stroke="#2a2f33" stroke-width="3"/><circle cx="11" cy="11" r="${R}" fill="none" stroke="url(#pg)" stroke-width="3" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}" transform="rotate(-90 11 11)" style="transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1)"/><defs><linearGradient id="pg"><stop offset="0" stop-color="#1ed68a"/><stop offset="1" stop-color="#d6ff3f"/></linearGradient></defs></svg><span>${left > 0 ? `${left}s free` : 'Go Pro'}</span>`;
     c.setAttribute('aria-label', `${left} seconds of free cleaning left. Tap to see Pro.`);
   }
 
@@ -293,14 +371,20 @@
     state.view = view;
     $$('.view').forEach(v => { const on = v.dataset.view === view; v.hidden = !on; if (on) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); } });
     $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.go === view)));
+    moveTabPill();
     if (view === 'library') renderLibrary();
     if (view === 'settings') renderSettings();
+  }
+
+  function moveTabPill() {
+    const idx = Math.max(0, ['record', 'library', 'settings'].indexOf(state.view));
+    $('#tabPill').style.transform = `translateX(calc(${idx} * (100% + 4px)))`;
   }
 
   /* ---------- Lists ---------- */
   function miniWave(peaks) {
     const n = peaks.length || 1, w = 36 / n;
-    const col = i => { const t = i / Math.max(1, n - 1); return `rgb(${Math.round(62 + (58 - 62) * t)},${Math.round(240 + (166 - 240) * t)},${Math.round(166 + (255 - 166) * t)})`; };
+    const col = i => { const t = i / Math.max(1, n - 1); return `rgb(${Math.round(30 + (214 - 30) * t)},${Math.round(214 + (255 - 214) * t)},${Math.round(138 + (63 - 138) * t)})`; };
     return `<svg viewBox="0 0 36 24" preserveAspectRatio="none">${peaks.map((p, i) => { const h = Math.max(1.5, p * 22); return `<rect x="${(i * w).toFixed(2)}" y="${(12 - h / 2).toFixed(2)}" width="${(w * 0.6).toFixed(2)}" height="${h.toFixed(2)}" rx=".5" fill="${col(i)}"/>`; }).join('')}</svg>`;
   }
   function itemHTML(r, i, showFolder) {
@@ -385,8 +469,8 @@
     const m = state.meta, s = m.settings;
     const bytes = m.recordings.reduce((a, r) => a + r.duration * r.sampleRate * 2 * (1 + (r.cleaned ? 1 : 0) + (r.hasProc ? 1 : 0)), 0);
     $('#proCard').innerHTML = state.pro
-      ? `<div class="halftone" style="position:absolute;right:-40px;top:-40px;width:200px;height:200px;opacity:.3;-webkit-mask-image:radial-gradient(circle,#000,transparent 65%);mask-image:radial-gradient(circle,#000,transparent 65%)"></div><h2>You're on Clear Pro</h2><p>Unlimited cleaning, every effect, no ads. Manage or cancel anytime in Google Play → Subscriptions.</p>`
-      : `<div class="halftone" style="position:absolute;right:-40px;top:-40px;width:200px;height:200px;opacity:.3;-webkit-mask-image:radial-gradient(circle,#000,transparent 65%);mask-image:radial-gradient(circle,#000,transparent 65%)"></div><h2>Clean without limits</h2><p>You've used ${m.freeUsed} of ${FREE_LIMIT} free seconds. Pro removes the limit, unlocks all 12 effects and turns off ads.</p><button class="cta" id="setPro">Get Pro · ${esc(P.billing.price || '$2.00')}/month</button>`;
+      ? `<div class="glow-emerald"></div><div class="glow-spark"></div><div class="eyebrow">Plan · Pro</div><h2>You're on Clear Pro ${STAR()}</h2><p>Unlimited cleaning, every effect, no ads. Manage or cancel anytime in Google Play → Subscriptions.</p>`
+      : `<div class="glow-emerald"></div><div class="glow-spark"></div><div class="eyebrow">Plan · Free</div><h2>Clean without limits ${STAR()}</h2><p>You've used ${m.freeUsed} of ${FREE_LIMIT} free seconds. Pro removes the limit, unlocks all 12 effects and turns off ads.</p><button class="cta" id="setPro">${ic('star4', 'star')}Get Pro · ${esc(P.billing.price || '$2.00')}/month</button>`;
     const sp = $('#setPro'); if (sp) sp.onclick = () => paywall();
     setSeg($('#setStrength'), s.strength); setSeg($('#setFormat'), s.format);
     $('#setKbps').value = String(s.kbps);
@@ -406,21 +490,22 @@
   const segValue = seg => { const b = $('button[aria-pressed="true"]', seg); return b ? b.dataset.v : null; };
 
   /* ---------- Recorder ---------- */
+  let liveLevel = 0;
   const R = { status: 'idle', stream: null, mr: null, chunks: [], analyser: null, src: null, startAt: 0, before: 0, levels: [], raf: 0 };
   const elapsed = () => R.before + (R.status === 'recording' ? (performance.now() - R.startAt) / 1000 : 0);
   function setRecUI() {
     const st = $('#recStage');
     st.classList.toggle('recording', R.status === 'recording'); st.classList.toggle('paused', R.status === 'paused');
-    $('#recStatusText').textContent = { idle: 'Ready', recording: 'Recording', paused: 'Paused' }[R.status];
+    $('#recStatusText').innerHTML = { idle: 'Ready to record<span class="caret"></span>', recording: 'Recording', paused: 'Paused' }[R.status];
     $('#recBtn').setAttribute('aria-label', R.status === 'idle' ? 'Start recording' : 'Stop and save');
     $('#recPause').disabled = $('#recDiscard').disabled = R.status === 'idle';
     $('#recPause').innerHTML = R.status === 'paused' ? ic('mic') : ic('pause');
     $('#recPause').setAttribute('aria-label', R.status === 'paused' ? 'Resume' : 'Pause');
-    $('#recHint').textContent = R.status === 'idle' ? 'Tap to record. Your audio is saved only on this phone.' : R.status === 'paused' ? 'Paused. Tap the mic to continue or the red button to save.' : 'Tap the red button to stop and save.';
+    $('#recHint').textContent = R.status === 'idle' ? 'Tap to record. Saved only on this phone.' : R.status === 'paused' ? 'Paused. Tap the mic to continue, or stop to save.' : 'Tap stop to save.';
   }
   function micBlocked() {
     openSheet(`<h2>Microphone is off here</h2><p class="sub">This preview can't use your microphone. In the Clear Audio Recorder app, recording works right away after you allow mic access.</p>
-      <div class="sheet-actions"><button class="cta" id="mbImport">${ic('upload')}Import a file instead</button><button class="btn-2" id="mbSample">${ic('sparkle')}Try the noisy sample</button><button class="btn-text" id="mbClose">Close</button></div>`,
+      <div class="sheet-actions"><button class="cta" id="mbImport">${ic('upload')}Import a file instead</button><button class="btn-2" id="mbSample">${ic('star4')}Try the noisy sample</button><button class="btn-text" id="mbClose">Close</button></div>`,
       sh => { $('#mbImport', sh).onclick = () => { closeSheet(); $('#fileInput').click(); }; $('#mbSample', sh).onclick = () => { closeSheet(); trySample(); }; $('#mbClose', sh).onclick = () => closeSheet(); });
   }
   async function startRec() {
@@ -447,7 +532,7 @@
     if (R.stream) R.stream.getTracks().forEach(t => t.stop());
     try { R.src && R.src.disconnect(); } catch (e) { }
     R.stream = R.mr = R.src = R.analyser = null; R.status = 'idle'; R.levels = [];
-    document.documentElement.style.setProperty('--lvl', 0);
+    liveLevel = 0; document.documentElement.style.setProperty('--lvl', 0);
     setRecUI(); drawLive(); $('#recTime').innerHTML = '00:00<span>.0</span>';
   }
   function stopRec(save = true) {
@@ -482,7 +567,7 @@
       let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
       const lvl = R.status === 'recording' ? Math.min(1, Math.sqrt(s / buf.length) * 5) : 0;
       if (R.status === 'recording') { R.levels.push(lvl); if (R.levels.length > 400) R.levels.shift(); }
-      document.documentElement.style.setProperty('--lvl', lvl.toFixed(3));
+      liveLevel = lvl; document.documentElement.style.setProperty('--lvl', lvl.toFixed(3));
       const t = elapsed(), m = Math.floor(t / 60), sec = Math.floor(t % 60), d = Math.floor((t * 10) % 10);
       $('#recTime').innerHTML = `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}<span>.${d}</span>`;
       drawLive(); R.raf = requestAnimationFrame(step);
@@ -498,12 +583,12 @@
     const c = $('#liveWave'); if (!c || !c.clientWidth) return;
     const { g, w, h } = fitCanvas(c); g.clearRect(0, 0, w, h);
     const bw = 3, gap = 3, n = Math.floor(w / (bw + gap)), lv = R.levels;
-    const grad = g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, '#3ef0a6'); grad.addColorStop(1, '#3aa6ff');
+    const grad = g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, '#1ed68a'); grad.addColorStop(1, '#d6ff3f');
     for (let i = 0; i < n; i++) {
       const li = lv.length - n + i, v = li >= 0 ? lv[li] : 0;
       const idle = R.status === 'idle' ? 0.04 + 0.03 * Math.sin(i * 0.5 + performance.now() / 600) : 0;
       const bh = Math.max(3, (v + idle) * h * 0.95);
-      g.fillStyle = li >= 0 && v > 0 ? grad : '#20262e';
+      g.fillStyle = li >= 0 && v > 0 ? grad : '#2a2f33';
       g.beginPath(); g.roundRect ? g.roundRect(i * (bw + gap), (h - bh) / 2, bw, bh, 1.5) : g.rect(i * (bw + gap), (h - bh) / 2, bw, bh); g.fill();
     }
   }
@@ -628,14 +713,14 @@
       pk = mix; if (t >= 1) ed.morph = null; else requestAnimationFrame(drawEditor);
     }
     const dur = PL.buf ? PL.buf.duration : 1, prog = clamp(plPos() / dur, 0, 1), px = prog * w;
-    const grad = g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, '#3ef0a6'); grad.addColorStop(1, '#3aa6ff');
-    const rest = ed.ver === 'orig' && (ed.clean || ed.proc) ? '#4a3a40' : '#323943';
+    const grad = g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, '#1ed68a'); grad.addColorStop(1, '#d6ff3f');
+    const rest = ed.ver === 'orig' && (ed.clean || ed.proc) ? '#4a3d3b' : '#2a2f33';
     for (let i = 0; i < n; i++) {
       const x = i * (bw + gap), bh = Math.max(2, pk[i] * h * 0.92);
       g.fillStyle = x < px ? grad : rest;
       g.beginPath(); g.roundRect ? g.roundRect(x, (h - bh) / 2, bw, bh, 1.2) : g.rect(x, (h - bh) / 2, bw, bh); g.fill();
     }
-    if (prog > 0) { g.fillStyle = '#eef2f6'; g.fillRect(Math.min(px, w - 2), 0, 2, h); }
+    if (prog > 0) { g.fillStyle = '#eeeae2'; g.fillRect(Math.min(px, w - 2), 0, 2, h); }
   }
   function startMorph(fromVer) {
     const ed = state.editor, c = $('#edWave'); const n = Math.floor(c.clientWidth / 4.1);
@@ -660,7 +745,7 @@
     }
     ed.busy = true; plPause();
     const btn = $('#cleanBtn'), prog = $('#cleanProg'), scan = $('#scan'), card = $('.wave-card'), canvas = $('#edWave');
-    btn.disabled = true; btn.classList.add('busy'); $('#cleanLabel').textContent = 'Cleaning…'; scan.classList.add('on');
+    btn.disabled = true; btn.classList.add('busy'); $('#cleanLabel').textContent = 'Cleaning'; scan.classList.add('on');
     const wrapLeft = canvas.offsetLeft, cw = canvas.clientWidth;
     const strength = segValue($('#strengthSeg')) || 'medium', fromVer = ed.ver;
     try {
@@ -678,7 +763,7 @@
       if (!reduceMotion) startMorph(fromVer); else drawEditor();
       const br = btn.getBoundingClientRect(); burst(br.left + br.width / 2, br.top + br.height / 2);
       btn.classList.remove('shine'); void btn.offsetWidth; btn.classList.add('shine');
-      toast(r.cleaned.noiseDb ? `Cleaned · background noise down ${r.cleaned.noiseDb} dB` : 'Cleaned', 'sparkle');
+      toast(r.cleaned.noiseDb ? `Cleaned · background noise down ${r.cleaned.noiseDb} dB` : 'Cleaned', 'star4');
     } catch (e) { console.error(e); toast('Cleaning failed. Try again.', 'x'); }
     finally {
       ed.busy = false; btn.disabled = false; btn.classList.remove('busy'); prog.style.width = '0'; scan.classList.remove('on');
@@ -706,7 +791,7 @@
   }
   async function doExport() {
     const ed = state.editor; if (!ed || !ed.orig) return; const r = ed.rec, s = state.meta.settings;
-    const btn = $('#exportBtn'); btn.disabled = true; $('#exportLabel').textContent = 'Preparing…';
+    const btn = $('#exportBtn'); btn.disabled = true; $('#exportLabel').textContent = 'Preparing'; btn.classList.add('busy');
     try {
       const data = edSamples(ed, 'final');
       const bytes = s.format === 'mp3' ? await E.encodeMP3(data, ed.sr, s.kbps) : E.encodeWAV(data, ed.sr);
@@ -717,7 +802,7 @@
         if (!state.pro) setTimeout(() => P.ads.interstitial(), res.note ? 2400 : 600);
       } else if (!res.quiet) toast(res.message || 'Export failed', 'x');
     } catch (e) { console.error(e); toast(String(e.message || e).includes('MP3') ? 'MP3 encoder didn\'t load. Try WAV.' : 'Export failed', 'x'); }
-    finally { btn.disabled = false; renderEditorPanels(); }
+    finally { btn.disabled = false; btn.classList.remove('busy'); renderEditorPanels(); }
   }
 
   /* ---------- Sparkle burst ---------- */
@@ -725,7 +810,7 @@
     if (reduceMotion) return;
     const c = document.createElement('canvas'); c.className = 'burst'; document.body.appendChild(c);
     const { g, w, h } = (() => { const dpr = Math.min(2, devicePixelRatio || 1); c.width = innerWidth * dpr; c.height = innerHeight * dpr; const g = c.getContext('2d'); g.scale(dpr, dpr); return { g, w: innerWidth, h: innerHeight }; })();
-    const cols = ['#3ef0a6', '#3aa6ff', '#eef2f6', '#7ff7c8'];
+    const cols = ['#d6ff3f', '#1ed68a', '#eeeae2', '#e2ff6e'];
     const ps = Array.from({ length: 34 }, (_, i) => { const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 5.5; return { x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2.5, s: 3 + Math.random() * 6, c: cols[i % 4], star: i % 3 === 0, r: Math.random() * 6 }; });
     const t0 = performance.now();
     const star = (px, py, s) => { g.beginPath(); for (let k = 0; k < 8; k++) { const ang = k * Math.PI / 4, rr = k % 2 ? s * 0.28 : s; g.lineTo(px + Math.cos(ang) * rr, py + Math.sin(ang) * rr); } g.closePath(); g.fill(); };
@@ -830,7 +915,6 @@
   }
 
   async function boot() {
-    $$('.logo-slot').forEach(s => s.innerHTML = LOGO());
     bind();
     const t0 = performance.now();
     try { await P.init(); } catch (e) { console.warn(e); }
@@ -841,9 +925,17 @@
     try { await P.ads.init(); if (!state.pro) await P.ads.showBanner(); } catch (e) { }
     renderPlan(); renderRecent(); setRecUI();
     ['#strengthSeg', '#fmtSeg', '#kbpsSeg', '#setStrength', '#setFormat'].forEach(s => setSeg($(s), segValue($(s)) || $('button', $(s)).dataset.v));
-    drawLive(); idleLoop();
-    const wait = Math.max(0, 1300 - (performance.now() - t0));
-    setTimeout(() => { $('#splash').classList.add('out'); $('#view-record').classList.add('enter'); }, reduceMotion ? 0 : wait);
+    drawLive(); idleLoop(); moveTabPill();
+    const hero = $('#recStage'), btn = $('#recBtn');
+    createDither($('#recDither'), {
+      cell: 6, bg: [0.067, 0.075, 0.082],
+      focus: () => { const a = hero.getBoundingClientRect(), b = btn.getBoundingClientRect(); if (!a.width) return null; return { x: (b.left + b.width / 2 - a.left) / a.width, y: 1 - (b.top + b.height / 2 - a.top) / a.height }; },
+      boost: () => liveLevel,
+      active: () => state.view === 'record' && !state.editor,
+    });
+    const splashD = createDither($('#splashDither'), { cell: 7, focus: () => ({ x: 0.5, y: 0.42 }), active: () => !$('#splash').classList.contains('out') });
+    const wait = Math.max(0, 1500 - (performance.now() - t0));
+    setTimeout(() => { $('#splash').classList.add('out'); $('#view-record').classList.add('enter'); setTimeout(() => splashD && splashD.stop(), 800); }, reduceMotion ? 0 : wait);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

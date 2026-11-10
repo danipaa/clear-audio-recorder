@@ -54,7 +54,7 @@ if (Capacitor.isNativePlatform()) {
     name: 'android',
     async init() {
       try { await Filesystem.mkdir({ path: AUDIO, directory: DIR, recursive: true }); } catch (e) { /* exists */ }
-      try { await StatusBar.setStyle({ style: Style.Dark }); await StatusBar.setBackgroundColor({ color: '#060709' }); } catch (e) { }
+      try { await StatusBar.setStyle({ style: Style.Dark }); await StatusBar.setBackgroundColor({ color: '#08090a' }); } catch (e) { }
       App.addListener('backButton', () => { if (!(window.ClearApp && window.ClearApp.onBack())) App.exitApp(); });
     },
     async loadMeta() {

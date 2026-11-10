@@ -19,7 +19,7 @@ if (!only || only === 'preview') {
   const html = `<title>${TITLE}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&family=Unbounded:wght@400..700&display=swap">
 <style>
 ${css}
 </style>
@@ -43,8 +43,8 @@ if (!only || only === 'www') {
   // Local fonts so the app looks right with no internet
   const fonts = [
     ['@fontsource-variable/unbounded', 'unbounded-latin-wght-normal.woff2', 'Unbounded', '200 900'],
-    ['@fontsource-variable/manrope', 'manrope-latin-wght-normal.woff2', 'Manrope', '200 800'],
-    ['@fontsource-variable/jetbrains-mono', 'jetbrains-mono-latin-wght-normal.woff2', 'JetBrains Mono', '100 800'],
+    ['@fontsource-variable/geist', 'geist-latin-wght-normal.woff2', 'Geist', '100 900'],
+    ['@fontsource-variable/geist-mono', 'geist-mono-latin-wght-normal.woff2', 'Geist Mono', '100 900'],
   ];
   let fontCss = '';
   for (const [pkg, file, family, weight] of fonts) {
@@ -63,7 +63,7 @@ if (!only || only === 'www') {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#060709">
+<meta name="theme-color" content="#08090a">
 <title>${TITLE}</title>
 <link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="styles.css">
 </head><body>
