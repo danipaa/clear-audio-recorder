@@ -1,0 +1,154 @@
+<div class="splash" id="splash"><div class="splash-inner"><span class="logo-slot"></span><div class="wordmark">CLEAR</div></div></div>
+
+<div class="stage">
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="logo-slot brand-mark"></span><div><div class="wordmark">CLEAR</div><div class="wordmark-sub">Audio Recorder</div></div></div>
+      <button class="plan-chip" id="planChip" type="button"></button>
+    </header>
+
+    <main class="views">
+      <!-- RECORD -->
+      <section class="view" id="view-record" data-view="record">
+        <div class="rec-stage" id="recStage">
+          <div class="halo halftone"></div>
+          <svg class="spark" style="left:12%;top:18%" viewBox="0 0 24 24"><path d="M12 1c.9 6.3 4.7 10.1 11 11-6.3.9-10.1 4.7-11 11-.9-6.3-4.7-10.1-11-11C7.3 11.1 11.1 7.3 12 1z" fill="currentColor"/></svg>
+          <svg class="spark" style="right:14%;top:30%" viewBox="0 0 24 24"><path d="M12 1c.9 6.3 4.7 10.1 11 11-6.3.9-10.1 4.7-11 11-.9-6.3-4.7-10.1-11-11C7.3 11.1 11.1 7.3 12 1z" fill="currentColor"/></svg>
+          <svg class="spark" style="left:7%;top:47%" viewBox="0 0 24 24"><path d="M12 1c.9 6.3 4.7 10.1 11 11-6.3.9-10.1 4.7-11 11-.9-6.3-4.7-10.1-11-11C7.3 11.1 11.1 7.3 12 1z" fill="currentColor"/></svg>
+          <div class="rec-status"><span class="dot"></span><span id="recStatusText">Ready</span></div>
+          <div class="rec-time" id="recTime">00:00<span>.0</span></div>
+          <canvas class="live-wave" id="liveWave" aria-hidden="true"></canvas>
+          <div class="rec-controls">
+            <button class="round-btn" id="recDiscard" type="button" aria-label="Discard" disabled><i data-ic="x"></i></button>
+            <button class="rec-btn" id="recBtn" type="button" aria-label="Start recording"><span class="rec-core"></span><span class="ring"></span><span class="ring r2"></span></button>
+            <button class="round-btn" id="recPause" type="button" aria-label="Pause" disabled><i data-ic="pause"></i></button>
+          </div>
+          <p class="rec-hint" id="recHint">Tap to record. Your audio is saved only on this phone.</p>
+        </div>
+
+        <div class="quick">
+          <button class="tile" id="importBtn" type="button"><span class="tile-ico"><i data-ic="upload"></i></span><b>Import audio</b><span>MP3, WAV, M4A, or a video's sound</span></button>
+          <button class="tile" id="sampleBtn" type="button"><span class="tile-ico"><i data-ic="sparkle"></i></span><b>Try a noisy sample</b><span>Hear one-tap cleaning in 5 seconds</span></button>
+        </div>
+
+        <div class="section-head"><h2>Recent</h2><button class="link" type="button" data-goto="library">See all</button></div>
+        <ul class="rec-list" id="recentList"></ul>
+      </section>
+
+      <!-- LIBRARY -->
+      <section class="view" id="view-library" data-view="library" hidden>
+        <div class="lib-head"><h1>Library</h1>
+          <div class="folder-tools">
+            <button class="pill-btn" id="libImport" type="button"><i data-ic="upload"></i>Import</button>
+            <button class="pill-btn" id="newFolderBtn" type="button"><i data-ic="folderPlus"></i>Folder</button>
+          </div>
+        </div>
+        <label class="search" for="search"><i data-ic="search"></i><input id="search" type="search" placeholder="Search by name or folder" autocomplete="off"></label>
+        <div class="folders" id="folderChips" role="toolbar" aria-label="Folders"></div>
+        <div class="lib-tools">
+          <span id="libCount"></span>
+          <span style="display:flex;gap:8px;align-items:center">
+            <button class="icon-btn" id="folderMenu" type="button" aria-label="Folder options" hidden><i data-ic="more"></i></button>
+            <select id="sortSel" aria-label="Sort recordings"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="name">Name A–Z</option><option value="long">Longest first</option></select>
+          </span>
+        </div>
+        <ul class="rec-list" id="libList"></ul>
+        <div class="empty" id="libEmpty" hidden></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="view" id="view-settings" data-view="settings" hidden>
+        <h1 style="margin:6px 2px 0">You</h1>
+        <div class="pro-card" id="proCard"></div>
+
+        <div class="group-title">Defaults</div>
+        <div class="group">
+          <div class="row"><div class="row-label"><b>Cleaning strength</b><span>Starting point for new clips</span></div></div>
+          <div style="padding:0 16px 14px"><div class="seg" id="setStrength"><button type="button" data-v="light">Light</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="strong">Strong</button></div></div>
+          <div class="row"><div class="row-label"><b>Export format</b><span>MP3 is smaller, WAV is lossless</span></div>
+            <div class="seg compact" id="setFormat" style="width:132px"><button type="button" data-v="mp3">MP3</button><button type="button" data-v="wav">WAV</button></div></div>
+          <div class="row"><div class="row-label"><b>MP3 quality</b><span>Higher sounds better, files get bigger</span></div>
+            <select id="setKbps" aria-label="MP3 quality"><option value="128">128 kbps</option><option value="192">192 kbps</option><option value="320">320 kbps</option></select></div>
+        </div>
+
+        <div class="group-title">Storage &amp; privacy</div>
+        <div class="group">
+          <div class="row"><div class="row-label"><b>On this phone</b><span id="storageInfo"></span></div></div>
+          <div class="row"><div class="row-label"><b>Private by design</b><span>Recordings never leave your phone. Uninstalling the app deletes them, so export anything you want to keep.</span></div></div>
+        </div>
+
+        <div class="group-title">Subscription</div>
+        <div class="group">
+          <div class="row"><div class="row-label"><b>Restore purchase</b><span>Already paid on another phone?</span></div><button class="pill-btn" id="restoreBtn" type="button"><i data-ic="restore"></i>Restore</button></div>
+          <div class="row" id="resetRow"><div class="row-label"><b>Reset preview</b><span>Clears this demo and the free-seconds counter</span></div><button class="pill-btn" id="resetBtn" type="button" style="color:var(--danger)">Reset</button></div>
+        </div>
+        <p class="version">Clear Audio Recorder · version 1.0</p>
+      </section>
+    </main>
+
+    <div class="ad-banner" id="adBanner" hidden><b>AD</b><span>Banner ad shows here on the free plan</span></div>
+
+    <nav class="tabbar" role="tablist" aria-label="Main">
+      <button class="tab" role="tab" type="button" data-go="record" aria-selected="true"><i data-ic="mic"></i>Record</button>
+      <button class="tab" role="tab" type="button" data-go="library" aria-selected="false"><i data-ic="library"></i>Library</button>
+      <button class="tab" role="tab" type="button" data-go="settings" aria-selected="false"><i data-ic="user"></i>You</button>
+    </nav>
+  </div>
+</div>
+
+<!-- EDITOR -->
+<section class="editor" id="editor" aria-hidden="true" aria-label="Recording editor">
+  <div class="editor-inner">
+    <header class="ed-top">
+      <button class="icon-btn" id="edBack" type="button" aria-label="Back to library"><i data-ic="left"></i></button>
+      <div class="ed-title"><button class="ed-name" id="edName" type="button" aria-label="Rename"></button><button class="ed-folder" id="edFolder" type="button" aria-label="Move to folder"></button></div>
+      <button class="icon-btn" id="edMore" type="button" aria-label="More options"><i data-ic="more"></i></button>
+    </header>
+    <div class="ed-scroll">
+      <div class="wave-card">
+        <div class="halftone" style="position:absolute;left:0;right:0;top:0;height:120px;opacity:.1;pointer-events:none;-webkit-mask-image:linear-gradient(#000,transparent);mask-image:linear-gradient(#000,transparent)"></div>
+        <div class="ab-row"><span class="ab-label" id="abLabel">Original</span>
+          <div class="seg compact" id="abSeg" style="width:170px" hidden><button type="button" data-v="orig">Before</button><button type="button" data-v="final">After</button></div></div>
+        <canvas class="ed-wave" id="edWave" aria-label="Waveform. Tap to jump to a spot."></canvas>
+        <div class="scan" id="scan"></div>
+        <div class="transport">
+          <span class="t" id="tCur">0:00</span>
+          <button class="skip" id="back5" type="button" aria-label="Back 5 seconds"><i data-ic="back5"></i></button>
+          <button class="play" id="playBtn" type="button" aria-label="Play"><i data-ic="play"></i></button>
+          <button class="skip" id="fwd5" type="button" aria-label="Forward 5 seconds"><i data-ic="fwd5"></i></button>
+          <span class="t" id="tDur">0:00</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Noise removal</h3><span class="tag" id="cleanTag">Not cleaned</span></div>
+        <div class="seg" id="strengthSeg"><button type="button" data-v="light">Light</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="strong">Strong</button></div>
+        <button class="cta" id="cleanBtn" type="button"><span class="progress" id="cleanProg"></span><i data-ic="sparkle"></i><span id="cleanLabel">Clean audio</span></button>
+        <p class="fine" id="cleanFine"></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Voice effects</h3><span class="tag">Tap to hear</span></div>
+        <div class="fx-grid" id="fxGrid"></div>
+        <div class="slider-row"><label for="pitch">Pitch</label><input type="range" id="pitch" min="-12" max="12" step="1" value="0"><output id="pitchOut" for="pitch">0</output></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Export</h3></div>
+        <div class="seg" id="fmtSeg"><button type="button" data-v="mp3">MP3</button><button type="button" data-v="wav">WAV</button></div>
+        <div class="seg compact" id="kbpsSeg"><button type="button" data-v="128">128 kbps</button><button type="button" data-v="192">192 kbps</button><button type="button" data-v="320">320 kbps</button></div>
+        <button class="cta" id="exportBtn" type="button"><i data-ic="share"></i><span id="exportLabel">Export MP3</span></button>
+        <p class="fine" id="exportFine"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet-wrap"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="interstitial" id="interstitial" hidden>
+  <button class="pill-btn close" id="adClose" type="button" disabled>Close <span id="adCount" class="mono"></span></button>
+  <div class="ad-box">Full-screen ad plays here after an export on the free plan.<br><br>Pro users never see this.</div>
+</div>
+<input type="file" id="fileInput" accept="audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.webm,.mp4,.mov" multiple hidden>

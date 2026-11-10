@@ -1,0 +1,73 @@
+name: Build Android app
+
+# Runs on every push to main, or by hand from the Actions tab ("Run workflow").
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Test the audio engine
+        run: npm test
+
+      - name: Build the app's web layer and copy it into Android
+        run: npm run sync
+
+      - name: Add signing key (only if you've saved it as a secret)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-key.jks
+            echo "Signing key found: building a Play Store release too."
+          else
+            echo "No signing key yet: building the test APK only."
+          fi
+
+      - name: Build
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          if [ -f app/upload-key.jks ]; then ./gradlew bundleRelease --no-daemon; fi
+
+      - name: Upload test APK (install this on your phone)
+        uses: actions/upload-artifact@v4
+        with:
+          name: clear-audio-recorder-test-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload Play Store bundle (.aab)
+        if: hashFiles('android/app/build/outputs/bundle/release/*.aab') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: clear-audio-recorder-play-store-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30

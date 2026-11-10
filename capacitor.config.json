@@ -1,0 +1,19 @@
+{
+  "appId": "com.daxator.clearaudiorecorder",
+  "appName": "Clear Audio Recorder",
+  "webDir": "www",
+  "backgroundColor": "#060709",
+  "android": {
+    "backgroundColor": "#060709",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

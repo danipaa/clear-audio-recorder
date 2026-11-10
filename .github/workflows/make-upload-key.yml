@@ -1,0 +1,40 @@
+name: Make Play Store upload key (run once)
+
+# Run this ONE time from the Actions tab. It creates your upload key and a text
+# file with its passwords, then gives them to you as a download. Save both
+# somewhere safe (Google Drive + a USB stick). If you lose this key you can ask
+# Google to reset it, but it takes days.
+on:
+  workflow_dispatch:
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Create key
+        run: |
+          PASS=$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9' | head -c 20)
+          keytool -genkeypair -v -keystore upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$PASS" -keypass "$PASS" \
+            -dname "CN=Clear Audio Recorder, O=Daxator, C=PK"
+          base64 -w0 upload-key.jks > KEYSTORE_BASE64.txt
+          {
+            echo "Add these 4 secrets in GitHub: Settings > Secrets and variables > Actions > New repository secret"
+            echo ""
+            echo "KEYSTORE_BASE64  = (paste everything inside KEYSTORE_BASE64.txt)"
+            echo "KEYSTORE_PASSWORD = $PASS"
+            echo "KEY_ALIAS = upload"
+            echo "KEY_PASSWORD = $PASS"
+          } > SECRETS-TO-ADD.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upload-key-DOWNLOAD-AND-DELETE
+          path: |
+            upload-key.jks
+            KEYSTORE_BASE64.txt
+            SECRETS-TO-ADD.txt
+          retention-days: 1

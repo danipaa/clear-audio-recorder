@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Clear Audio Recorder</string>
+    <string name="title_activity_main">Clear Audio Recorder</string>
+    <string name="package_name">com.daxator.clearaudiorecorder</string>
+    <string name="custom_url_scheme">com.daxator.clearaudiorecorder</string>
+</resources>
